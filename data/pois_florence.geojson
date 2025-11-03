@@ -1,0 +1,1 @@
+{"type": "FeatureCollection", "features": [{"type": "Feature", "properties": {"kind": "toilet", "title": "Piazza WC", "trust": "Med"}, "geometry": {"type": "Point", "coordinates": [11.255, 43.77]}}]}

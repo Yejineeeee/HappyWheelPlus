@@ -1,0 +1,1 @@
+{"type": "FeatureCollection", "features": [{"type": "Feature", "properties": {"kind": "toilet", "title": "Bahnhof WC", "trust": "High"}, "geometry": {"type": "Point", "coordinates": [8.309, 47.05]}}]}

@@ -1,0 +1,1 @@
+{"type": "FeatureCollection", "features": [{"type": "Feature", "properties": {"kind": "elevator", "title": "Duomo Lift", "trust": "High"}, "geometry": {"type": "Point", "coordinates": [9.191, 45.464]}}]}
