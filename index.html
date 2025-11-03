@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"/>
-  <title>HappyWheel+ · PWA v5</title>
+  <title>HappyWheel+</title>
   <link rel="manifest" href="manifest.webmanifest"/>
   <meta name="theme-color" content="#3A66FF"/>
   <link href="https://unpkg.com/maplibre-gl@2.4.0/dist/maplibre-gl.css" rel="stylesheet"/>
@@ -23,7 +23,7 @@
     </div>
     <div class="drawer-body">
       <div class="list-item-header">앱 소개</div>
-      <p class="drawer-text">휠체어 사용자에게 유리한 코스(무계단·저경사·필수 편의시설)를 보여주는 모바일 웹앱입니다. 나라→도시→코스→지도→길안내 순서로 이용하세요.</p>
+      <p class="drawer-text">휠체어 사용자에게 유리한 코스를 보여주는 모바일 웹앱입니다. 나라→도시→코스→지도→길안내 순서로 이용하세요.</p>
       <div class="list-item-header">OpenRouteService 키</div>
       <div class="row">
         <input id="orsKeyInput" placeholder="ORS API 키 입력"/>
@@ -39,13 +39,6 @@
   <div id="scrim" class="scrim"></div>
 
   <main id="views">
-    <section id="v-home" class="view">
-      <div class="panel">
-        <h2>여행할 나라 선택</h2>
-        <div id="countryGrid" class="grid"></div>
-      </div>
-    </section>
-
     <section id="v-cities" class="view hidden">
       <div class="panel">
         <h2 id="citiesTitle">도시 선택</h2>
@@ -60,6 +53,12 @@
       </div>
     </section>
 
+    <section id="v-home" class="view">
+      <div class="panel">
+        <h2>여행할 나라 선택</h2>
+        <div id="countryGrid" class="grid"></div>
+      </div>
+    </section>
     <section id="v-map" class="view hidden" aria-label="지도">
       <div id="map"></div>
       <div class="map-overlay">
@@ -75,16 +74,16 @@
     <section id="v-nav" class="view hidden">
       <div class="panel">
         <h2>길 안내</h2>
-        <div id="navInfo" class="nav-info">코스를 선택하면 실제 경로를 계산하여 단계별 힌트를 보여줍니다.</div>
+        <div id="navInfo" class="nav-info">코스를 선택하면 길 안내를 도와줍니다.</div>
         <ol id="turnList" class="turn-list"></ol>
       </div>
     </section>
   </main>
 
   <nav class="tabbar">
-    <button class="tab active" data-to="v-home">🏠<div class="tab-txt">홈</div></button>
     <button class="tab" data-to="v-cities">🗺️<div class="tab-txt">도시</div></button>
     <button class="tab" data-to="v-courses">🧭<div class="tab-txt">코스</div></button>
+    <button class="tab active" data-to="v-home">🏠<div class="tab-txt">홈</div></button>
     <button class="tab" data-to="v-map">🗼<div class="tab-txt">지도</div></button>
     <button class="tab" data-to="v-nav">✅<div class="tab-txt">길안내</div></button>
   </nav>

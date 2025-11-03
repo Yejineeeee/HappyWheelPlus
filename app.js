@@ -1,8 +1,24 @@
-
 // ---- basic state ----
 let map, watchId=null, currentCountry=null, currentCity=null, currentCourse=null, markers=[];
 const qs=s=>document.querySelector(s), qsa=s=>document.querySelectorAll(s);
 function toast(msg){ const el=document.createElement('div'); el.textContent=msg; el.style.cssText='position:fixed;left:50%;transform:translateX(-50%);bottom:78px;background:#222;color:#fff;padding:10px 14px;border-radius:10px;font-size:12px;opacity:.95;z-index:99'; document.body.appendChild(el); setTimeout(()=>el.remove(),2200); }
+function esc(s){ return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+
+// ---- POI constants & helpers (Wheelmap/OSM 편의시설) ----
+const OVERPASS = 'https://overpass-api.de/api/interpreter';
+const POI_SOURCES = {
+  toilet:   'poi-toilet',
+  elevator: 'poi-elevator',
+  bench:    'poi-bench',
+  fountain: 'poi-fountain',
+};
+const POI_COLOR = {
+  'poi-toilet':   '#1e90ff',
+  'poi-elevator': '#7c3aed',
+  'poi-bench':    '#22c55e',
+  'poi-fountain': '#0ea5e9',
+};
+const isOn = key => document.querySelector(`.chip.on[data-layer="${key}"]`);
 
 // ---- datasets ----
 const MODEL={
@@ -14,7 +30,6 @@ const MODEL={
 const CITY_TOKEN={"런던":"london","파리":"paris","루체른":"lucerne","베른":"bern","인터라켄":"interlaken","밀라노":"milan","베네치아":"venice","피렌체":"florence","로마":"rome"};
 
 // fallback samples for offline/file://
-
 const FALLBACK_COURSES = {"london": [{"name": "사우스뱅크 무계단 루프", "time": "~90분", "distance_km": 3.8, "difficulty": "쉬움", "turns": ["타워 브리지 남단 → 강변 산책로", "버러 마켓 → 글로브", "테이트 모던 광장", "밀레니엄 브리지 북단 → 세인트 폴"], "stops": [{"lon": -0.0754, "lat": 51.5055, "name": "타워 브리지"}, {"lon": -0.091, "lat": 51.505, "name": "버러 마켓"}, {"lon": -0.097, "lat": 51.507, "name": "테이트 모던"}, {"lon": -0.0984, "lat": 51.5138, "name": "세인트 폴 대성당"}]}, {"name": "웨스트민스터–세인트 제임스–트라팔가", "time": "~80분", "distance_km": 3.0, "difficulty": "쉬움", "turns": ["웨스트민스터 브리지", "세인트 제임스 파크", "트라팔가 광장"], "stops": [{"lon": -0.123, "lat": 51.5, "name": "웨스트민스터 브리지"}, {"lon": -0.134, "lat": 51.504, "name": "세인트 제임스 파크"}, {"lon": -0.128, "lat": 51.507, "name": "트라팔가 광장"}]}], "paris": [{"name": "루브르–뛸르리–오랑주리", "time": "~60분", "distance_km": 2.0, "difficulty": "쉬움", "turns": ["루브르 피라미드", "뛸르리 중앙 보행로", "오랑주리"], "stops": [{"lon": 2.335, "lat": 48.861, "name": "루브르 박물관"}, {"lon": 2.327, "lat": 48.862, "name": "뛸르리 정원"}, {"lon": 2.321, "lat": 48.864, "name": "오랑주리 미술관"}]}, {"name": "노트르담–시테섬–퐁네프", "time": "~75분", "distance_km": 2.6, "difficulty": "쉬움", "turns": ["시테섬 순환 산책", "퐁네프 북단 → 루브르 방면"], "stops": [{"lon": 2.3499, "lat": 48.853, "name": "노트르담 대성당"}, {"lon": 2.341, "lat": 48.857, "name": "시테섬 북단 산책로"}, {"lon": 2.339, "lat": 48.8577, "name": "퐁네프"}]}], "lucerne": [{"name": "호반–카펠교–중앙역", "time": "~45분", "distance_km": 1.8, "difficulty": "쉬움", "turns": ["호반 산책로", "카펠교", "중앙역"], "stops": [{"lon": 8.31, "lat": 47.051, "name": "루체른 호반"}, {"lon": 8.307, "lat": 47.052, "name": "카펠교"}, {"lon": 8.308, "lat": 47.05, "name": "루체른 중앙역"}]}], "bern": [{"name": "아르강 전망–분수–연방의사당", "time": "~50분", "distance_km": 2.0, "difficulty": "쉬움", "stops": [{"lon": 7.451, "lat": 46.948, "name": "뮌스터 테라스"}, {"lon": 7.447, "lat": 46.948, "name": "분수/아케이드"}, {"lon": 7.445, "lat": 46.947, "name": "연방의사당 전망"}]}], "interlaken": [{"name": "회퍼브루케–호헤마트 공원", "time": "~50분", "distance_km": 2.0, "difficulty": "쉬움", "stops": [{"lon": 7.862, "lat": 46.686, "name": "호헤마트 공원"}, {"lon": 7.856, "lat": 46.686, "name": "아레강 다리(회퍼브루케)"}]}], "milan": [{"name": "두오모–갤러리아", "time": "~40분", "distance_km": 1.2, "difficulty": "쉬움", "stops": [{"lon": 9.191, "lat": 45.464, "name": "두오모 대성당"}, {"lon": 9.189, "lat": 45.466, "name": "비토리오 에마누엘레 2세 갤러리아"}]}, {"name": "스포르체스코 성–브레라", "time": "~70분", "distance_km": 2.3, "difficulty": "쉬움", "stops": [{"lon": 9.179, "lat": 45.47, "name": "스포르체스코 성"}, {"lon": 9.187, "lat": 45.472, "name": "브레라 지구"}]}], "venice": [{"name": "두칼레–산 마르코", "time": "~45분", "distance_km": 1.0, "difficulty": "보통", "stops": [{"lon": 12.339, "lat": 45.434, "name": "두칼레 궁전"}, {"lon": 12.338, "lat": 45.434, "name": "산 마르코 대성당"}]}, {"name": "리알토–산 폴로", "time": "~60분", "distance_km": 1.6, "difficulty": "보통", "stops": [{"lon": 12.335, "lat": 45.438, "name": "리알토 다리"}, {"lon": 12.333, "lat": 45.437, "name": "산 폴로"}]}], "florence": [{"name": "두오모–시뇨리아", "time": "~60분", "distance_km": 1.8, "difficulty": "보통", "stops": [{"lon": 11.257, "lat": 43.773, "name": "두오모"}, {"lon": 11.254, "lat": 43.771, "name": "공화국 광장"}, {"lon": 11.255, "lat": 43.769, "name": "시뇨리아 광장"}]}, {"name": "우피치–베키오 다리–피티궁", "time": "~75분", "distance_km": 2.1, "difficulty": "보통", "stops": [{"lon": 11.255, "lat": 43.768, "name": "우피치 미술관"}, {"lon": 11.253, "lat": 43.767, "name": "베키오 다리"}, {"lon": 11.25, "lat": 43.765, "name": "피티 궁전"}]}], "rome": [{"name": "나보나–판테온", "time": "~60분", "distance_km": 2.0, "difficulty": "쉬움", "stops": [{"lon": 12.473, "lat": 41.9, "name": "나보나 광장"}, {"lon": 12.476, "lat": 41.899, "name": "판테온"}]}, {"name": "포로 로마노 주변 산책", "time": "~80분", "distance_km": 2.5, "difficulty": "보통", "stops": [{"lon": 12.484, "lat": 41.892, "name": "포로 로마노 동쪽 입구"}, {"lon": 12.492, "lat": 41.89, "name": "콜로세움 북측"}]}]};
 
 // ---- drawer & init ----
@@ -83,8 +98,60 @@ function initMap(){
   map = new maplibregl.Map({container:"map",style:rasterStyle,center:[2.333,48.86],zoom:13});
   map.addControl(new maplibregl.NavigationControl(),"top-right");
   map.on("load",()=>{
+    // 경로
     map.addSource("route",{type:"geojson",data:{type:"FeatureCollection",features:[]}});
     map.addLayer({id:"route-line",type:"line",source:"route",paint:{"line-color":"#3A66FF","line-width":4}});
+
+    // --- 편의시설 POI 소스/레이어 등록 ---
+    const empty = { type:'FeatureCollection', features:[] };
+    Object.values(POI_SOURCES).forEach(id=>{
+      if(!map.getSource(id)) map.addSource(id, { type:'geojson', data: empty });
+    });
+    Object.entries(POI_SOURCES).forEach(([key,id])=>{
+      if(map.getLayer(id)) return;
+      map.addLayer({
+        id,
+        type: 'circle',
+        source: id,
+        paint: {
+          'circle-radius': 5,
+          'circle-color': POI_COLOR[id],
+          'circle-stroke-width': 1.2,
+          'circle-stroke-color': '#fff'
+        },
+        layout: { 'visibility': 'visible' }
+      });
+    });
+
+    // 최초 로드 & 지도 이동 후 갱신
+    updatePois();
+    map.on('moveend', updatePois);
+
+    // (선택) 클릭 팝업
+    Object.values(POI_SOURCES).forEach(id=>{
+      map.on('click', id, (e)=>{
+       // 레이어 id → 한글 라벨
+        const kor = id==='poi-toilet'   ? '화장실'
+                  : id==='poi-elevator'? '엘리베이터'
+                  : id==='poi-bench'   ? '벤치'
+                  : id==='poi-fountain'? '음수대'
+                  : '편의시설';
+
+         // OSM tags.name(있으면 부제목으로 표시)
+        const p = e.features?.[0]?.properties || {};
+        const tags = p.tags ? (typeof p.tags === 'string' ? JSON.parse(p.tags) : p.tags) : {};
+        const nm = tags && tags.name ? esc(tags.name) : '';
+
+        const html = nm
+        ? `<div style="font-weight:700">${kor}</div><div style="color:#667085;font-size:12px">${nm}</div>`
+        : `<div style="font-weight:700">${kor}</div>`;
+
+        new maplibregl.Popup().setLngLat(e.lngLat).setHTML(html).addTo(map);
+      });
+      map.on('mouseenter', id, ()=> map.getCanvas().style.cursor='pointer');
+      map.on('mouseleave', id, ()=> map.getCanvas().style.cursor='');
+    });
+
   });
 }
 function bboxFromCoords(coords){
@@ -103,6 +170,52 @@ function addStopMarkers(stops){
     const mk=new maplibregl.Marker({element:el, anchor:'bottom'}).setLngLat(lngLat).addTo(map);
     markers.push(mk);
   });
+}
+
+// Overpass에서 편의시설 불러오기
+async function updatePois(){
+  if(!map) return;
+  const b = map.getBounds();
+  const bbox = `${b.getSouth()},${b.getWest()},${b.getNorth()},${b.getEast()}`;
+
+  const parts = [];
+  if(isOn('toilet'))   parts.push(`node["amenity"="toilets"](${bbox});`);
+  if(isOn('elevator')) parts.push(`node["highway"="elevator"](${bbox});`);
+  if(isOn('bench'))    parts.push(`node["amenity"="bench"](${bbox});`);
+  if(isOn('fountain')) parts.push(`node["amenity"="drinking_water"](${bbox});`);
+
+  if(!parts.length){
+    Object.values(POI_SOURCES).forEach(id=>{
+      map.getSource(id)?.setData({type:'FeatureCollection', features:[]});
+    });
+    return;
+  }
+
+  const ql = `
+    [out:json][timeout:25];
+    (
+      ${parts.join('\n')}
+    );
+    out body 200;
+  `.trim();
+
+  try{
+    const res = await fetch(OVERPASS, { method:'POST', body: 'data=' + encodeURIComponent(ql) });
+    const json = await res.json();
+    const feats = (json.elements||[]).map(n => ({
+      type: 'Feature',
+      geometry: { type:'Point', coordinates:[n.lon, n.lat] },
+      properties: { id: n.id, tags: n.tags || {} }
+    }));
+
+    const fc = (filter) => ({ type:'FeatureCollection', features:feats.filter(filter) });
+    map.getSource('poi-toilet')  ?.setData(fc(f=>f.properties.tags.amenity === 'toilets'));
+    map.getSource('poi-elevator')?.setData(fc(f=>f.properties.tags.highway === 'elevator'));
+    map.getSource('poi-bench')   ?.setData(fc(f=>f.properties.tags.amenity === 'bench'));
+    map.getSource('poi-fountain')?.setData(fc(f=>f.properties.tags.amenity === 'drinking_water'));
+  }catch(e){
+    console.warn('Overpass error', e);
+  }
 }
 
 // ORS routing
@@ -174,6 +287,20 @@ function stopWatch(){ if(watchId){ navigator.geolocation.clearWatch(watchId); wa
 
 // Tabs
 qsa(".tab").forEach(t=> t.addEventListener("click", ()=> show(t.dataset.to)));
+
+// Chip toggle → layer visibility & refresh
+qsa('.chip').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    btn.classList.toggle('on');
+    const key = btn.getAttribute('data-layer');      // toilet/elevator/bench/fountain
+    const layerId = 'poi-' + key;
+    const on = btn.classList.contains('on');
+    if(map?.getLayer(layerId)){
+      map.setLayoutProperty(layerId, 'visibility', on ? 'visible' : 'none');
+    }
+    updatePois();
+  });
+});
 
 // Init flow
 document.addEventListener('DOMContentLoaded', ()=>{
