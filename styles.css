@@ -20,6 +20,27 @@
 .chip-row{display:flex;gap:8px;background:rgba(255,255,255,.94);padding:8px;border:1px solid var(--line);border-radius:999px}
 .chip{border:0;background:var(--chip);color:var(--ink);padding:8px 12px;border-radius:999px;font-size:13px}
 .chip.on{background:var(--accent);color:#fff}
+.chip.chip-soft{background:#F2F4F7;color:#344054;border:1px solid #E4E7EC}
+.chip.chip-soft:active{transform:translateY(1px)}
+
+/* POI chip colors (on state only) */
+.chip[data-layer="toilet"].on{background:#E11D48}
+.chip[data-layer="elevator"].on{background:#0EA5E9}
+.chip[data-layer="bench"].on{background:#16A34A}
+.chip[data-layer="fountain"].on{background:#8B5CF6}
+
+.map-overlay{position:absolute;left:12px;right:12px;bottom:92px;display:flex;flex-direction:column;gap:10px;z-index:10;pointer-events:none}
+.map-overlay .chip-row{align-self:flex-start;pointer-events:auto}
+
+.navbox{background:rgba(255,255,255,.94);border:1px solid var(--line);border-radius:16px;padding:10px 12px;max-width:560px;pointer-events:auto}
+.navbox-top{display:flex;align-items:center;gap:8px}
+.navbox-title{font-weight:800}
+.btn-small{padding:6px 10px;font-size:12px}
+.navbox-now{margin-top:6px;font-size:13px;font-weight:700}
+.navbox-meta{margin-top:2px;font-size:12px;color:var(--muted)}
+
+.turn-list li.active-step{background:rgba(58,102,255,.12);border-radius:10px;padding:8px 10px}
+.turn-list li.done-step{opacity:.6}
 .tabbar{position:fixed;bottom:0;left:0;right:0;display:flex;background:#fff;border-top:1px solid var(--line);height:calc(var(--tabbar-h) + var(--safe-btm));padding-bottom:var(--safe-btm);z-index:15}
 .tab{flex:1;border:0;background:transparent;color:var(--muted);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-weight:700}
 .tab.active{color:var(--accent)}
@@ -30,6 +51,7 @@
 .drawer.open{transform:translateX(0)}.drawer-top{display:flex;align-items:center;justify-content:space-between;padding:12px;border-bottom:1px solid var(--line)}.drawer-title{font-weight:700}.drawer-body{padding:12px 12px 80px}
 .drawer-body .row{display:flex;gap:8px;margin:6px 0}.btn{border:0;background:var(--accent);color:#fff;border-radius:10px;padding:8px 12px}
 .drawer-body input{flex:1;border:1px solid var(--line);border-radius:10px;padding:8px}
+.drawer-body textarea{width:100%;border:1px solid var(--line);border-radius:10px;padding:8px;resize:vertical}
 .drawer-text{color:var(--muted);font-size:12px}
 .toggle-row{display:flex;align-items:center;gap:8px;margin-top:8px}
 .scrim{position:fixed;inset:0;background:rgba(0,0,0,.2);opacity:0;pointer-events:none;transition:opacity .2s;z-index:25}.scrim.show{opacity:1;pointer-events:auto}
@@ -37,6 +59,15 @@
 .sheet.open{bottom:0}.sheet-head{display:flex;align-items:center;justify-content:space-between;padding:12px;border-bottom:1px solid var(--line)}.sheet-title{font-weight:700}.sheet-body{padding:12px;color:#344054;line-height:1.5}
 .marker-stop{background:#fff;border:2px solid #3A66FF;border-radius:12px;padding:2px 6px;font-size:12px;box-shadow:0 1px 4px rgba(0,0,0,.15)}
 .marker-stop .em{margin-right:4px}
+
+/* AI course builder */
+.ai-card{margin:10px 0 12px;padding:12px;border:1px dashed var(--line);border-radius:14px;background:rgba(255,255,255,.6)}
+.ai-title{font-weight:800}
+.ai-sub{color:var(--muted);font-size:12px;margin:6px 0 8px;line-height:1.4}
+.ai-input{width:100%;border:1px solid var(--line);border-radius:12px;padding:10px;font-size:13px;background:#fff}
+.ai-actions{display:flex;gap:8px;margin-top:8px;align-items:center}
+.btn.btn-ghost{background:#fff;color:var(--ink);border:1px solid var(--line)}
+.ai-status{margin-top:8px;color:var(--muted);font-size:12px;min-height:16px}
 body.contrast{--bg:#0B0B0B;--card:#1A1A1A;--ink:#F1F1F1;--muted:#C9C9C9;--line:#2A2A2A;--chip:#2A2A2A}
 
 /* v5.2: bigger titles for country/city cards */
