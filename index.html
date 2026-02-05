@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"/>
-  <title>HappyWheel+</title>
+  <title>HappyWheel+ · PWA v5</title>
   <link rel="manifest" href="manifest.webmanifest"/>
   <meta name="theme-color" content="#3A66FF"/>
   <link href="https://unpkg.com/maplibre-gl@2.4.0/dist/maplibre-gl.css" rel="stylesheet"/>
@@ -23,22 +23,46 @@
     </div>
     <div class="drawer-body">
       <div class="list-item-header">앱 소개</div>
-      <p class="drawer-text">휠체어 사용자에게 유리한 코스를 보여주는 모바일 웹앱입니다. 나라→도시→코스→지도→길안내 순서로 이용하세요.</p>
+      <p class="drawer-text">휠체어 사용자에게 유리한 코스(무계단·저경사·필수 편의시설)를 보여주는 모바일 웹앱입니다. 나라→도시→코스→지도→길안내 순서로 이용하세요.</p>
       <div class="list-item-header">OpenRouteService 키</div>
       <div class="row">
         <input id="orsKeyInput" placeholder="ORS API 키 입력"/>
         <button id="saveKeyBtn" class="btn">저장</button>
       </div>
       <small class="drawer-text">키가 없으면 경유지 직선 경로로 표시합니다.</small>
+
+      <div class="list-item-header">AI(LLM) 설정(선택)</div>
+      <p class="drawer-text">API 키를 저장하면 코스 화면에서 “AI 맞춤 코스 만들기”가 활성화됩니다. 키는 브라우저(로컬)에만 저장됩니다.</p>
+      <div class="row">
+        <input id="llmEndpointInput" placeholder="LLM 엔드포인트(선택, OpenAI 호환)"/>
+      </div>
+      <div class="row">
+        <input id="llmModelInput" placeholder="모델명(선택)"/>
+      </div>
+      <div class="row">
+        <input id="llmKeyInput" placeholder="LLM API 키 입력"/>
+        <button id="saveLlmBtn" class="btn">저장</button>
+      </div>
+      <small class="drawer-text">엔드포인트/모델을 비워두면 기본값으로 시도합니다. 브라우저에서 직접 호출하므로 일부 서비스는 CORS 정책에 따라 실패할 수 있습니다.</small>
+
       <div class="list-item-header">앱 초기화</div>
       <button id="resetAppBtn" class="btn">캐시/설정 초기화</button>
       <label class="toggle-row"><input type="checkbox" id="locToggle"> 현재 위치 표시</label>
       <label class="toggle-row"><input type="checkbox" id="contrastToggle"> 고대비 모드</label>
+      <label class="toggle-row"><input type="checkbox" id="overpassToggle"> OSM(Overpass)로 POI 자동 수집</label>
+      <small class="drawer-text">체크 시 지도/경로 주변의 화장실·엘리베이터·벤치·음수대 POI를 OSM에서 수집합니다. 네트워크/서버 상황에 따라 느리거나 제한될 수 있으며, 실패 시 내장 POI로 대체됩니다.</small>
     </div>
   </aside>
   <div id="scrim" class="scrim"></div>
 
   <main id="views">
+    <section id="v-home" class="view">
+      <div class="panel">
+        <h2>여행할 나라 선택</h2>
+        <div id="countryGrid" class="grid"></div>
+      </div>
+    </section>
+
     <section id="v-cities" class="view hidden">
       <div class="panel">
         <h2 id="citiesTitle">도시 선택</h2>
@@ -49,16 +73,22 @@
     <section id="v-courses" class="view hidden">
       <div class="panel">
         <h2 id="courseCity">도시 추천 코스</h2>
+
+        <div id="aiPanel" class="ai-card" aria-label="AI 맞춤 코스 만들기">
+          <div class="ai-title">AI 맞춤 코스 만들기</div>
+          <div class="ai-sub">원하는 조건을 적으면, 기본 추천 코스 후보(유명 관광지 위주)에서 맞춤 코스를 구성합니다.</div>
+          <textarea id="aiPrompt" class="ai-input" rows="3" placeholder="예: 2~3시간, 휠체어로 이동하기 쉬운 곳, 야경 좋은 곳 포함"></textarea>
+          <div class="ai-actions">
+            <button id="aiGenerateBtn" class="btn">AI로 코스 생성</button>
+            <button id="aiClearBtn" class="btn btn-ghost">AI 코스 삭제</button>
+          </div>
+          <div id="aiStatus" class="ai-status" aria-live="polite"></div>
+        </div>
+
         <ul id="courseList" class="list"></ul>
       </div>
     </section>
 
-    <section id="v-home" class="view">
-      <div class="panel">
-        <h2>여행할 나라 선택</h2>
-        <div id="countryGrid" class="grid"></div>
-      </div>
-    </section>
     <section id="v-map" class="view hidden" aria-label="지도">
       <div id="map"></div>
       <div class="map-overlay">
@@ -67,6 +97,17 @@
           <button class="chip on" data-layer="elevator">엘리베이터</button>
           <button class="chip on" data-layer="bench">벤치</button>
           <button class="chip on" data-layer="fountain">음수대</button>
+          <button id="poiRefreshBtn" class="chip chip-soft" title="OSM POI 다시 불러오기">OSM 갱신</button>
+        </div>
+
+        <div class="navbox" aria-label="실시간 길안내">
+          <div class="navbox-top">
+            <div class="navbox-title">길안내</div>
+            <button id="navStartBtn" class="btn btn-small">시작</button>
+            <button id="navStopBtn" class="btn btn-ghost btn-small">종료</button>
+          </div>
+          <div id="navNow" class="navbox-now">코스를 선택하면 안내가 표시됩니다.</div>
+          <div id="navMeta" class="navbox-meta">현재 위치를 켜면(메뉴) 진행 상황이 업데이트됩니다.</div>
         </div>
       </div>
     </section>
@@ -74,16 +115,16 @@
     <section id="v-nav" class="view hidden">
       <div class="panel">
         <h2>길 안내</h2>
-        <div id="navInfo" class="nav-info">코스를 선택하면 길 안내를 도와줍니다.</div>
+        <div id="navInfo" class="nav-info">코스를 선택하면 실제 경로를 계산하여 단계별 힌트를 보여줍니다.</div>
         <ol id="turnList" class="turn-list"></ol>
       </div>
     </section>
   </main>
 
   <nav class="tabbar">
+    <button class="tab active" data-to="v-home">🏠<div class="tab-txt">홈</div></button>
     <button class="tab" data-to="v-cities">🗺️<div class="tab-txt">도시</div></button>
     <button class="tab" data-to="v-courses">🧭<div class="tab-txt">코스</div></button>
-    <button class="tab active" data-to="v-home">🏠<div class="tab-txt">홈</div></button>
     <button class="tab" data-to="v-map">🗼<div class="tab-txt">지도</div></button>
     <button class="tab" data-to="v-nav">✅<div class="tab-txt">길안내</div></button>
   </nav>
