@@ -56,18 +56,21 @@ export function startNav(opts: NavOptions): NavHandle {
   let offCount = 0;
   const handle = (pos: LngLat, heading: number | null, accuracy = 0): void => {
     if (stopped) return;
-    let progress = locate(coords, cum, pos, hint, opts.stopsAlongM);
+    let recovered = false;
+    let progress = locate(coords, cum, pos, hint, opts.stopsAlongM, accuracy);
     let off = progress.offRouteM - accuracy > OFF_ROUTE_M;
     if (off) {
       offCount++;
       if (offCount >= 2) {
         // 연속으로 벗어나면 전체에서 다시 찾는다(경로로 돌아온 경우).
         progress = locate(coords, cum, pos, undefined, opts.stopsAlongM);
+        recovered = true;
         off = progress.offRouteM - accuracy > OFF_ROUTE_M;
       }
     } else offCount = 0;
     if (!off) offCount = 0;
-    hint = progress.alongM;
+    // 탐색 기준점은 뒤로 가지 않는다. 오차로 흔들려도 왕복 경로의 반대편 길로 넘어가지 않게 하려는 것이다.
+    hint = recovered || hint === undefined ? progress.alongM : Math.max(hint, progress.alongM);
     opts.onUpdate({
       pos,
       progress,
