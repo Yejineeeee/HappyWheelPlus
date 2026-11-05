@@ -8,6 +8,9 @@
 .maplibregl-ctrl.maplibregl-ctrl-attrib .maplibregl-ctrl-attrib-button {
   width: 44px;
   height: 44px;
+  /* 버튼을 키워도 아이콘은 가운데 한 번만 */
+  background-repeat: no-repeat;
+  background-position: center;
 }
 /* 지도 컨트롤도 키보드 초점이 보이게 */
 .maplibregl-ctrl button:focus-visible,
