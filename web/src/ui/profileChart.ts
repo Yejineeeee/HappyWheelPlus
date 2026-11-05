@@ -1,5 +1,5 @@
-import * as Plot from "@observablehq/plot";
 import { el } from "./components";
+import { loadPlot, plotIfLoaded, type PlotModule } from "./plot";
 
 export type ProfileRow = [number, number | null, number | null];
 
@@ -64,7 +64,20 @@ export function profileChart(rows: ProfileRow[], opts: { compare?: ProfileRow[] 
   const holder = el("div", { class: "profile-plot" });
   let showCompare = false;
 
+  let disposed = false;
   const draw = (): void => {
+    if (disposed) return;
+    const Plot = plotIfLoaded();
+    if (!Plot) {
+      // 처음 한 번만 라이브러리를 내려받는다. 받는 동안은 비워 두고, 받으면 그린다.
+      void loadPlot().then(draw, () => {
+        if (!disposed) holder.replaceChildren(el("p", { class: "profile-empty" }, "그래프를 불러오지 못했어요"));
+      });
+      return;
+    }
+    drawWith(Plot);
+  };
+  const drawWith = (Plot: PlotModule): void => {
     const width = holder.clientWidth || 320;
     const accent = cssVar("--accent", "#1F5FD1");
     const warn = cssVar("--warn", "#9A5B00");
@@ -76,7 +89,7 @@ export function profileChart(rows: ProfileRow[], opts: { compare?: ProfileRow[] 
     const hi = Math.max(...ys);
     const pad = Math.max(1, (hi - lo) * 0.1);
     const line = (data: ProfileRow[]) => data.filter((r) => r[1] !== null);
-    const marks: Plot.Markish[] = [];
+    const marks: ReturnType<PlotModule["line"]>[] = [];
     if (bands.length > 0) {
       marks.push(
         Plot.rectX(bands, {
@@ -144,7 +157,10 @@ export function profileChart(rows: ProfileRow[], opts: { compare?: ProfileRow[] 
 
   draw();
   const stops: (() => void)[] = [];
-  cleanups.set(root, () => stops.forEach((f) => f()));
+  cleanups.set(root, () => {
+    disposed = true;
+    stops.forEach((f) => f());
+  });
   if (typeof MutationObserver !== "undefined") {
     // 테마가 바뀌면 SVG에 박힌 색을 다시 읽는다. disposeProfileChart가 해제한다.
     const themeObs = new MutationObserver(() => draw());

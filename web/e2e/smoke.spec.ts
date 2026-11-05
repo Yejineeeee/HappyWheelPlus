@@ -19,6 +19,8 @@ test("홈에서 코스 비교, 내 조건, 도시 비교, 잘못된 주소까지
 
   // 첫 코스 → 비교 표
   await page.locator(".course-card").first().click();
+  // 화면을 옮기면 초점이 새 화면의 제목으로 온다.
+  await expect(page.locator("h1.page-title")).toBeFocused();
   const compareTable = page.getByRole("table", { name: "최단 경로와 휠체어 경로 비교" });
   await expect(compareTable).toBeVisible();
 
@@ -46,6 +48,11 @@ test("홈에서 코스 비교, 내 조건, 도시 비교, 잘못된 주소까지
   // 분석 방법
   await page.getByRole("link", { name: "분석 방법" }).click();
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+
+  // 길안내: 가상 위치로 바꾸면 안내 문구가 나온다
+  await page.goto("/#/lucerne/0/nav");
+  await page.getByRole("button", { name: "가상 위치" }).click();
+  await expect(page.locator(".nav-instruction")).toHaveText(/앞|도착/);
 
   // 없는 주소
   await page.goto("/#/nowhere");

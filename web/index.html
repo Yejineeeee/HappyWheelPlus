@@ -5,7 +5,24 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#eef0f2" />
     <meta name="description" content="휠체어 이용자를 위한 접근성 여행 경로 안내" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="HappyWheel+ — 유럽 9개 도시 휠체어 접근성 지도" />
+    <meta property="og:description" content="계단과 급경사를 피하는 휠체어 경로를 도시별 점수 지도에서 비교하고, 내 조건으로 다시 찾아 보세요." />
+    <meta property="og:image" content="og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="icons/icon-192.png" />
     <title>HappyWheel+</title>
+    <script>
+      // 화면이 그려지기 전에 저장된 테마를 적용한다(기본은 라이트).
+      try {
+        document.documentElement.setAttribute("data-theme", localStorage.getItem("hw-theme") === "dark" ? "dark" : "light");
+      } catch (e) {
+        document.documentElement.setAttribute("data-theme", "light");
+      }
+    </script>
   </head>
   <body>
     <div id="app"></div>

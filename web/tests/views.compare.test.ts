@@ -1,9 +1,10 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import type { CityIndex } from "../src/data/types";
 
 vi.mock("../src/map/layers", () => ({ showCityMarkers: vi.fn() }));
 
 import { showCityMarkers } from "../src/map/layers";
+import { loadPlot } from "../src/ui/plot";
 import { mountSheet } from "../src/ui/sheet";
 import { disposeProfileChart, profileChart } from "../src/ui/profileChart";
 import { aboutView } from "../src/views/about";
@@ -60,10 +61,15 @@ function ctx(): AppContext & { titles: string[] } {
 }
 
 describe("compare and about views", () => {
-  it("compare renders four charts with headings, sentences and table toggles", () => {
+  // 프로필 차트는 라이브러리를 받은 뒤에 그린다. 테스트는 미리 받아 두고 같은 동기 검사를 유지한다.
+  beforeAll(async () => {
+    await loadPlot();
+  });
+
+  it("compare renders four charts with headings, sentences and table toggles", async () => {
     const c = ctx();
     const v = compareView();
-    v.mount(c);
+    await v.mount(c);
     expect(c.titles[0]).toBe("도시 비교");
     expect(c.sheet.el.querySelectorAll("h2").length).toBe(4);
     expect(c.sheet.el.querySelectorAll('[role="img"]').length).toBe(4);
@@ -82,7 +88,7 @@ describe("compare and about views", () => {
   it("compare redraws when data-theme changes and stops after unmount", async () => {
     const c = ctx();
     const v = compareView();
-    v.mount(c);
+    await v.mount(c);
     const before = c.sheet.el.querySelector(".chart-plot svg");
     document.documentElement.setAttribute("data-theme", "dark");
     await new Promise((r) => setTimeout(r, 20));

@@ -30,18 +30,28 @@ export default defineConfig({
       },
       workbox: {
         // 앱 셸만 미리 담는다. 데이터(약 100MB)는 쓸 때 담는다.
-        globPatterns: ["**/*.{js,css,html,svg,png,woff2}"],
-        globIgnores: ["data/**"],
+        globPatterns: ["**/*.{js,css,html,svg,png}"],
+        globIgnores: ["data/**", "og.png"],
         navigateFallbackDenylist: [/\/data\//],
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
         cleanupOutdatedCaches: true,
         runtimeCaching: [
           {
+            // 글꼴은 쓰는 글자 조각만 받아 담는다(앱 셸에 미리 담지 않는다).
+            urlPattern: ({ url, sameOrigin }) => sameOrigin && /\/assets\/.*\.woff2$/.test(url.pathname),
+            handler: "CacheFirst",
+            options: {
+              cacheName: "hw-fonts",
+              expiration: { maxEntries: 120, purgeOnQuotaError: true },
+              cacheableResponse: { statuses: [200] },
+            },
+          },
+          {
             urlPattern: ({ url, sameOrigin }) => sameOrigin && url.pathname.includes("/data/"),
             handler: "CacheFirst",
             options: {
               cacheName: "hw-data",
-              expiration: { maxEntries: 60 },
+              expiration: { maxEntries: 60, purgeOnQuotaError: true },
               cacheableResponse: { statuses: [200] },
             },
           },
@@ -50,8 +60,8 @@ export default defineConfig({
             handler: "StaleWhileRevalidate",
             options: {
               cacheName: "hw-map",
-              expiration: { maxEntries: 300 },
-              cacheableResponse: { statuses: [0, 200] },
+              expiration: { maxEntries: 300, purgeOnQuotaError: true },
+              cacheableResponse: { statuses: [200] },
             },
           },
         ],

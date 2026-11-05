@@ -115,14 +115,25 @@ describe("lucerne parity", () => {
     }
   });
 
-  it("routeProfile has one row per node and interpolation-free node elevations", () => {
+  it("routeProfile is resampled every 25 m like the exported profile", () => {
     const r = routeStops(g, stopNodes(courses[0]), W, alpha, "accessible");
     const prof = routeProfile(g, r, sp);
-    expect(prof.length).toBe(r.nodes.length);
-    expect(prof[0][0]).toBe(0);
     const len = r.edges.reduce((a, e) => a + props[e].len, 0);
-    expect(prof[prof.length - 1][0]).toBeCloseTo(len, 6);
+    expect(prof[0][0]).toBe(0);
     expect(prof[0][1]).toBe(g.elev[r.nodes[0]]);
+    expect(prof[prof.length - 1][0]).toBeCloseTo(len, 6);
+    for (let i = 1; i < prof.length - 1; i++) expect(prof[i][0] - prof[i - 1][0]).toBeCloseTo(25, 6);
+    const lastGap = prof[prof.length - 1][0] - prof[prof.length - 2][0];
+    expect(lastGap).toBeGreaterThan(0);
+    expect(lastGap).toBeLessThanOrEqual(25 + 1e-6);
+    // 내보낸 프로필과 지점 수·거리가 거의 같고, 고도는 몇 미터 안에서 같다.
+    const ref = courses[0].routes.accessible!.profile;
+    // 끝점은 길이 반올림 차이로 한 행 더 있을 수 있다.
+    expect(Math.abs(prof.length - ref.length)).toBeLessThanOrEqual(1);
+    for (let i = 0; i < Math.min(prof.length, ref.length) - 1; i++) {
+      expect(prof[i][0]).toBeCloseTo(ref[i][0], 0);
+      if (prof[i][1] !== null && ref[i][1] !== null) expect(Math.abs(prof[i][1]! - ref[i][1]!)).toBeLessThan(6);
+    }
   });
 
   it("pathCoords is continuous", () => {

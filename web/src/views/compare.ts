@@ -1,5 +1,4 @@
 import { HOME_CRUMB } from "../ui/shell";
-import * as Plot from "@observablehq/plot";
 import type { CityIndex, SurfaceClass } from "../data/types";
 import { highlightCityMarker, showCityMarkers } from "../map/layers";
 import { scoreColor } from "../map/style";
@@ -17,7 +16,8 @@ import {
   surfaceMixRows,
   surfaceSentence,
 } from "../ui/charts";
-import { el } from "../ui/components";
+import { el, errorBlock, loadingBlock } from "../ui/components";
+import { loadPlot, type PlotModule } from "../ui/plot";
 import { cssVar } from "../ui/profileChart";
 import { fitTo } from "./mapFit";
 import type { AppContext, View } from "./types";
@@ -127,7 +127,7 @@ function commonOpts(width: number, rows: number, marginRight = 12) {
   };
 }
 
-function buildCharts(index: CityIndex, onHover: Hover): { node: HTMLElement; redraw(): void }[] {
+function buildCharts(Plot: PlotModule, index: CityIndex, onHover: Hover): { node: HTMLElement; redraw(): void }[] {
   const scores = sortedScores(index);
   const order = scores.map((s) => s.city);
   const n = order.length;
@@ -300,13 +300,23 @@ export function compareView(): View {
   let themeObserver: MutationObserver | null = null;
   let restoreSnap: (() => void) | null = null;
   return {
-    mount(ctx: AppContext) {
+    async mount(ctx: AppContext) {
       ctx.shell.setTitle("도시 비교", [HOME_CRUMB]);
       const prevSnap = ctx.sheet.snap();
       restoreSnap = () => ctx.sheet.setSnap(prevSnap);
 
+      let Plot: PlotModule;
+      try {
+        ctx.sheet.setContent(loadingBlock("그래프를 준비하는 중"));
+        Plot = await loadPlot();
+      } catch {
+        if (ctx.signal.aborted) return;
+        ctx.sheet.setContent(errorBlock("그래프를 불러오지 못했어요.", () => void this.mount(ctx)));
+        return;
+      }
+      if (ctx.signal.aborted) return;
       const idByName = new Map(ctx.index.cities.map((c) => [c.name_ko, c.id]));
-      const charts = buildCharts(ctx.index, (name) => {
+      const charts = buildCharts(Plot, ctx.index, (name) => {
         highlightCityMarker(ctx.map, name === null ? null : (idByName.get(name) ?? null));
       });
       const root = el("div", { class: "compare" });

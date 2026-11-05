@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CityEntry, CityIndex, Course } from "../src/data/types";
 import unreachable from "./fixtures/courses_unreachable.json";
 
@@ -22,6 +22,7 @@ vi.mock("../src/map/layers", () => ({
 import { loadCourses, loadGraph, loadPois, loadSegments } from "../src/data/load";
 import { hasSegments, setRouteFocus, setSegmentsOpacity, showBlockedAt, showPois, showRoutes, showSegments, showStops } from "../src/map/layers";
 import { profileChart } from "../src/ui/profileChart";
+import { loadPlot } from "../src/ui/plot";
 import { mountSheet } from "../src/ui/sheet";
 import { courseView, customSentence, isBetter, shortestSentence } from "../src/views/course";
 import type { AppContext } from "../src/views/types";
@@ -306,6 +307,10 @@ describe("course view conditions panel", () => {
     const { currentRoute } = await import("../src/core/conditions");
     expect(currentRoute("paris", 0)?.source).toBe("default");
   });
+});
+
+beforeAll(async () => {
+  await loadPlot();
 });
 
 describe("profileChart", () => {
