@@ -190,8 +190,12 @@ export function headline(c: Course, sel: Selection): string {
   return summarySentence(c);
 }
 
+const NAV_LABEL = "길안내";
+const NAV_LABEL_SHORTEST = "휠체어 경로로 길안내";
+
 function navLink(c: Course, cityId: string): HTMLElement {
-  return el("a", { href: `#/${cityId}/${c.index}/nav`, class: "btn route-nav" }, icon("navigation", 18), "길안내");
+  const label = el("span", { class: "route-nav-label" }, NAV_LABEL);
+  return el("a", { href: `#/${cityId}/${c.index}/nav`, class: "btn route-nav" }, icon("navigation", 18), label);
 }
 
 function stopsList(c: Course): HTMLElement {
@@ -453,6 +457,10 @@ export function courseView(cityId: string, courseIndex: number): View {
           barKv.replaceChildren(kvList(summaryRows(course, sel, false), "kv-inline"));
           // 내 조건에서는 최단 대비 표 대신 패널의 기본 경로 대비 차이 표만 보인다.
           table.hidden = sel.view === "custom";
+          // 최단 탭에서도 길안내는 휠체어 경로로 간다. 갈 수 있는 경로가 없으면 이름을 바꾸지 않는다.
+          const navText = acc && sel.view === "shortest" ? NAV_LABEL_SHORTEST : NAV_LABEL;
+          for (const t of root.querySelectorAll(".route-nav-label")) t.textContent = navText;
+          for (const t of bar?.querySelectorAll(".route-nav-label") ?? []) t.textContent = navText;
           updatePois();
         }
 

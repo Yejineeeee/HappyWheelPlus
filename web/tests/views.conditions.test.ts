@@ -326,6 +326,29 @@ describe("conditions panel behaviour", () => {
       expect(btn.textContent).toBe("AI로 조건 맞추기");
     });
 
+    it("ignores an AI reply that arrives after leaving the 내 조건 tab", async () => {
+      vi.stubEnv("VITE_AI_ENDPOINT", "https://ai.example.test");
+      let resolveFetch!: (r: Response) => void;
+      vi.stubGlobal("fetch", vi.fn().mockReturnValue(new Promise<Response>((r) => (resolveFetch = r))));
+      const { root } = await openPanel(makeCtx());
+      const ta = root.querySelector<HTMLTextAreaElement>(".cond-ai textarea")!;
+      const btn = root.querySelector<HTMLButtonElement>(".cond-ai button")!;
+      ta.value = "언덕이 힘들어요";
+      ta.dispatchEvent(new Event("input", { bubbles: true }));
+      btn.click();
+      root.querySelector<HTMLButtonElement>('[role="radio"][data-value="accessible"]')!.click();
+      vi.mocked(showRoutes).mockClear();
+      vi.mocked(showSegments).mockClear();
+      resolveFetch(new Response(JSON.stringify(aiBody), { status: 200 }));
+      await flush();
+      await flush();
+      vi.advanceTimersByTime(1000);
+      expect(customCalls().length).toBe(0);
+      expect(showSegments).not.toHaveBeenCalled();
+      expect(currentRoute("lucerne", reachableIdx)?.source).toBe("default");
+      expect(btn.textContent).toBe("AI로 조건 맞추기");
+    });
+
     it("shows the rate limit message and leaves sliders untouched", async () => {
       vi.stubEnv("VITE_AI_ENDPOINT", "https://ai.example.test");
       vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("{}", { status: 429 })));

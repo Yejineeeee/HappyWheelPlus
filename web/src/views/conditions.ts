@@ -123,7 +123,7 @@ export interface ConditionsPanel {
   el: HTMLElement;
   /** 패널을 열고 내 조건 경로를 (다시) 계산해 지도에 보인다. */
   activate(): void;
-  /** 패널을 닫고 지도를 기본 접근성 경로로 되돌린다. 슬라이더 값은 그대로 둔다. */
+  /** 패널을 닫고 지도를 기본 휠체어 경로로 되돌린다. 슬라이더 값은 그대로 둔다. */
   deactivate(): void;
   /** 지도·저장소를 기본 경로 상태로 되돌리고 타이머를 정리한다. */
   destroy(): void;
@@ -139,7 +139,7 @@ export interface PanelOpts {
   ctx: AppContext;
   city: CityEntry;
   course: Course;
-  /** 표시 중인 경로의 경사 단면이 바뀌면 불린다. */
+  /** 표시 중인 경로의 오르막·내리막이 바뀌면 불린다. */
   onProfile(rows: ProfileRow[]): void;
   /** 지도에 보이는 내 조건 경로가 바뀌면 불린다(기본 경로로 돌아가면 null). */
   onResult?(r: CustomRoute | null): void;
@@ -161,6 +161,7 @@ export function conditionsPanel(opts: PanelOpts): ConditionsPanel {
   let timer: ReturnType<typeof setTimeout> | null = null;
   let appliedCustom = false;
   let dead = false;
+  let active = false;
 
   const root = el("section", { class: "conditions", id: `cond-${city.id}-${course.index}`, "aria-label": "내 조건", hidden: "" });
 
@@ -229,6 +230,7 @@ export function conditionsPanel(opts: PanelOpts): ConditionsPanel {
   // ----- 문장으로 조건 입력 -----
   let aiCtl: AbortController | null = null;
   let aiBox: HTMLElement | null = null;
+  let cancelAi = (): void => {};
   if (aiEnabled()) {
     const taId = `cond-ai-text-${course.index}`;
     const ta = el("textarea", { id: taId, class: "cond-ai-text", rows: "3", maxlength: String(AI_MAX_CHARS) });
@@ -245,6 +247,13 @@ export function conditionsPanel(opts: PanelOpts): ConditionsPanel {
       syncAi();
       aiResult.textContent = ta.value.length >= AI_MAX_CHARS ? `${AI_MAX_CHARS}자까지 쓸 수 있어요.` : "";
     });
+    // 탭을 떠나면 진행 중인 요청을 끊고 버튼을 처음 상태로 돌린다.
+    cancelAi = (): void => {
+      aiCtl?.abort();
+      aiCtl = null;
+      aiBtn.textContent = AI_BUTTON;
+      syncAi();
+    };
     aiBtn.addEventListener("click", () => {
       const text = ta.value.trim();
       if (!text) return;
@@ -334,7 +343,7 @@ export function conditionsPanel(opts: PanelOpts): ConditionsPanel {
   }
 
   function recompute(): void {
-    if (dead || !compute) return;
+    if (dead || !active || !compute) return;
     if (isDefault(cond, defaults)) {
       showDefault();
       setStatus("기본 조건이에요");
@@ -346,6 +355,7 @@ export function conditionsPanel(opts: PanelOpts): ConditionsPanel {
   }
 
   function schedule(): void {
+    if (!active) return;
     if (timer) clearTimeout(timer);
     timer = setTimeout(() => {
       timer = null;
@@ -403,13 +413,16 @@ export function conditionsPanel(opts: PanelOpts): ConditionsPanel {
     el: root,
     activate() {
       if (dead) return;
+      active = true;
       setOpen(true);
       if (compute) recompute();
       else load();
     },
     deactivate() {
       if (dead) return;
+      active = false;
       setOpen(false);
+      cancelAi();
       if (timer) clearTimeout(timer);
       timer = null;
       if (appliedCustom) showDefault();

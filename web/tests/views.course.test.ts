@@ -362,6 +362,29 @@ describe("course view route tabs and summary", () => {
     expect(setRouteFocus).toHaveBeenLastCalledWith(ctx.map, "accessible");
   });
 
+  it("nav button label follows the tab: 최단 says 휠체어 경로로 길안내", async () => {
+    vi.mocked(loadCourses).mockResolvedValue([course()]);
+    vi.mocked(loadGraph).mockReturnValue(new Promise(() => {}));
+    const ctx = makeCtx();
+    await courseView("paris", 0).mount(ctx);
+    await tick();
+    const root = ctx.sheet.el;
+    const bar = ctx.shell.mapContainer.querySelector(".route-bar")!;
+    const labels = () => [
+      root.querySelector(".route-summary .route-nav")!.textContent,
+      bar.querySelector(".route-nav")!.textContent,
+    ];
+    const tab = (v: string) => root.querySelector<HTMLButtonElement>('[role="radio"][data-value="' + v + '"]')!.click();
+    expect(labels()).toEqual(["길안내", "길안내"]);
+    tab("shortest");
+    expect(labels()).toEqual(["휠체어 경로로 길안내", "휠체어 경로로 길안내"]);
+    tab("custom");
+    expect(labels()).toEqual(["길안내", "길안내"]);
+    tab("shortest");
+    tab("accessible");
+    expect(labels()).toEqual(["길안내", "길안내"]);
+  });
+
   it("segmented tabs switch the emphasised route and drive the conditions panel", async () => {
     vi.mocked(loadCourses).mockResolvedValue([course()]);
     vi.mocked(loadGraph).mockReturnValue(new Promise(() => {}));
