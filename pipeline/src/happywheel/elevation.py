@@ -154,14 +154,12 @@ class CopernicusDEM:
         return result
 
 
-def edge_grade(coords, src: ElevationSource, step_m: float = 10.0,
-               min_run_m: float = 30.0) -> tuple[float | None, float | None]:
-    """(mean |grade| %, max |grade| %) over sliding windows of >= min_run_m."""
-    pts = sample_along(coords, step_m)
-    if len(pts) < 2:
+def grade_from_samples(samples, elev, min_run_m: float = 30.0
+                       ) -> tuple[float | None, float | None]:
+    """(mean |grade| %, max |grade| %) from samples [(lon, lat, dist)] and matching elevations."""
+    if len(samples) < 2:
         return None, None
-    elev = src.elevations([(p[0], p[1]) for p in pts])
-    dist = [p[2] for p in pts]
+    dist = [p[2] for p in samples]
     grades: list[float] = []
     if dist[-1] < min_run_m:
         if elev[0] is None or elev[-1] is None:
@@ -169,12 +167,12 @@ def edge_grade(coords, src: ElevationSource, step_m: float = 10.0,
         grades.append(abs(elev[-1] - elev[0]) / min_run_m * 100)
     else:
         j = 0
-        for i in range(len(pts)):
+        for i in range(len(samples)):
             if j < i:
                 j = i
-            while j < len(pts) and dist[j] - dist[i] < min_run_m:
+            while j < len(samples) and dist[j] - dist[i] < min_run_m:
                 j += 1
-            if j >= len(pts):
+            if j >= len(samples):
                 break
             if elev[i] is None or elev[j] is None:
                 continue
@@ -182,6 +180,16 @@ def edge_grade(coords, src: ElevationSource, step_m: float = 10.0,
     if not grades:
         return None, None
     return sum(grades) / len(grades), max(grades)
+
+
+def edge_grade(coords, src: ElevationSource, step_m: float = 10.0,
+               min_run_m: float = 30.0) -> tuple[float | None, float | None]:
+    """(mean |grade| %, max |grade| %) over sliding windows of >= min_run_m."""
+    pts = sample_along(coords, step_m)
+    if len(pts) < 2:
+        return None, None
+    elev = src.elevations([(p[0], p[1]) for p in pts])
+    return grade_from_samples(pts, elev, min_run_m)
 
 
 def profile(coords, src: ElevationSource,
