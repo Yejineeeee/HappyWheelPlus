@@ -79,18 +79,20 @@ function course(i: number, over: Partial<Course> = {}): Course {
   };
 }
 
-function makeCtx(): AppContext & { titles: [string, string | undefined][] } {
+function makeCtx(): AppContext & { titles: unknown[][] } {
   document.body.innerHTML = '<div id="map"></div><div id="panel"></div>';
-  const titles: [string, string | undefined][] = [];
+  const titles: unknown[][] = [];
   const mapContainer = document.getElementById("map")!;
   return {
     map: { fitTo: vi.fn(), isReady: () => true } as never,
     sheet: mountSheet(document.getElementById("panel")!),
     shell: {
       header: document.createElement("header"),
+      pageHead: document.createElement("div"),
+      setLayout: () => {},
       panel: document.getElementById("panel")!,
       mapContainer,
-      setTitle: (t: string, b?: string) => titles.push([t, b]),
+      setTitle: (...args: unknown[]) => titles.push(args),
       onThemeChange: () => {},
     },
     index: INDEX,
@@ -117,7 +119,7 @@ describe("city view", () => {
     expect(ctx.sheet.el.querySelectorAll(".course-card").length).toBe(3);
     expect(showSegments).not.toHaveBeenCalled();
     expect(document.querySelector(".map-overlay")?.textContent).toContain("길 데이터를 불러오는 중");
-    expect(ctx.titles[0]).toEqual(["파리", "#/"]);
+    expect(ctx.titles[0]).toEqual(["파리", [{ label: "홈", href: "#/" }]]);
     expect(ctx.sheet.el.textContent).toContain("평균 점수");
   });
 
@@ -126,11 +128,11 @@ describe("city view", () => {
     await cityView("seoul").mount(ctx);
     expect(ctx.sheet.el.textContent).toContain("찾을 수 없어요");
     expect(ctx.sheet.el.querySelector('a[href="#/"]')).not.toBeNull();
-    expect(ctx.titles[0]).toEqual(["찾을 수 없어요", "#/"]);
+    expect(ctx.titles[0]).toEqual(["찾을 수 없어요", [{ label: "홈", href: "#/" }]]);
     expect(loadCourses).not.toHaveBeenCalled();
   });
 
-  it("field badge only when field exists", async () => {
+  it("cards show computed results only; field records stay on the course page", async () => {
     vi.mocked(loadCourses).mockResolvedValue([
       course(0, { field: { difficulty: 2, stars: 5, note: "" } }),
       course(1),
@@ -141,10 +143,10 @@ describe("city view", () => {
     await cityView("paris").mount(ctx);
     await tick();
     const cards = ctx.sheet.el.querySelectorAll(".course-card");
-    expect(cards[0].textContent).toContain("현장 난이도 2/5 · ★5");
-    expect(cards[1].textContent).not.toContain("현장 난이도");
+    expect(cards[0].textContent).not.toMatch(/난이도|탐방팀|★|만족도/);
+    expect(cards[1].textContent).not.toMatch(/난이도|탐방팀|★|만족도/);
     expect(cards[2].textContent).toContain("경로 없음");
-    expect(cards[2].textContent).toContain("근사 결과");
+    expect(cards[2].textContent).toContain("위치 오차 있음");
   });
 
   it("retries only segments after a failure", async () => {
@@ -229,14 +231,15 @@ describe("city view lifecycle", () => {
     expect(chips[0].getAttribute("aria-pressed")).toBe("false");
   });
 
-  it("card has accessible labels for score and field stars", async () => {
+  it("card has an accessible label for the score", async () => {
     vi.mocked(loadCourses).mockResolvedValue([course(0, { field: { difficulty: 2, stars: 5, note: "" } })]);
     vi.mocked(loadSegments).mockReturnValue(new Promise(() => {}));
     const ctx = makeCtx();
     await cityView("paris").mount(ctx);
     const text = ctx.sheet.el.querySelector(".course-card")!.textContent!;
-    expect(text).toContain("접근성 점수 77점");
-    expect(text).toContain("현장 별점 5");
+    expect(text).toContain("점수 77");
+    expect(text).toContain("보통");
+    expect(text).not.toContain("별점");
   });
 });
 
@@ -248,10 +251,8 @@ describe("home view", () => {
     expect(groups.map((g) => g.querySelector("h3")!.textContent)).toEqual(["프랑스", "영국"]);
     expect(groups[0].querySelectorAll(".city-row").length).toBe(2);
     expect(groups[1].querySelectorAll(".city-row").length).toBe(1);
-    expect(ctx.sheet.el.querySelector('a[href="#/compare"]')).not.toBeNull();
-    expect(ctx.sheet.el.querySelector('a[href="#/about"]')).not.toBeNull();
     expect(showCityMarkers).toHaveBeenCalledTimes(1);
-    expect(ctx.titles[0]).toEqual(["HappyWheel+", undefined]);
+    expect(ctx.titles[0]).toEqual([null]);
     groups[1].querySelector<HTMLButtonElement>(".city-row")!.click();
     expect(ctx.navigate).toHaveBeenCalledWith({ name: "city", city: "london" });
   });
@@ -264,14 +265,16 @@ describe("home summary", () => {
     a.metrics.network_km = 500.4;
     b.metrics.network_km = 300.2;
     const s = homeStats([a, b]);
-    expect(s).toMatchObject({ cities: 2, courses: 3, meanScore: 85 });
+    expect(s).toMatchObject({ countries: 2, cities: 2, courses: 3, meanScore: 85 });
     expect(s.networkKm).toBeCloseTo(800.6, 6);
     expect(homeStats([]).meanScore).toBeNull();
 
     const ctx = makeCtx();
     await homeView().mount(ctx);
-    const labels = [...ctx.sheet.el.querySelectorAll(".stats-summary dt")].map((d) => d.textContent);
-    expect(labels).toEqual(["도시", "코스", "분석한 길", "평균 점수"]);
+    const intro = ctx.sheet.el.querySelector(".intro")!;
+    expect(intro.textContent).toBe("2개국 3개 도시, 길 300km를 구간마다 채점했어요. 탐방 코스 4개를 최단 경로와 비교해요.");
+    expect(intro.querySelectorAll(".num").length).toBe(3);
+    expect(ctx.sheet.el.querySelector(".stats, .stat")).toBeNull();
     const thumb = ctx.sheet.el.querySelector<HTMLImageElement>(".city-row img")!;
     expect(thumb.getAttribute("src")).toMatch(/data\/[a-z]+\/thumb\.webp\?v=v$/);
     expect(thumb.getAttribute("alt")).toBe("");

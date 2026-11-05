@@ -46,6 +46,8 @@ function makeCtx(): AppContext & { ctl: AbortController } {
     sheet: mountSheet(document.getElementById("panel")!),
     shell: {
       header: document.createElement("header"),
+      pageHead: document.createElement("div"),
+      setLayout: () => {},
       panel: document.getElementById("panel")!,
       mapContainer: document.getElementById("map")!,
       setTitle: () => {},
@@ -104,7 +106,7 @@ describe("conditions panel behaviour", () => {
     expect(showSegments).toHaveBeenCalled();
     expect(currentRoute("lucerne", reachableIdx)?.source).toBe("custom");
     expect(root.querySelector(".diff-table")).not.toBeNull();
-    expect(root.querySelector(".conditions input[type=range]")?.getAttribute("aria-valuetext")).toBe("경사 중요도 0.0");
+    expect(root.querySelector(".conditions input[type=range]")?.getAttribute("aria-valuetext")).toBe("신경 안 씀");
   });
 
   it("does not recompute after unmount", async () => {
@@ -193,6 +195,29 @@ describe("conditions panel behaviour", () => {
     expect(Number(first.value)).toBe(idx.weights_default.slope);
   });
 
+  it("shows defaults on the nearest step but keeps the exact default weights until moved", async () => {
+    const ctx = makeCtx();
+    const { root } = await openPanel(ctx);
+    const inputs = [...root.querySelectorAll<HTMLInputElement>('.conditions input[type="range"]')];
+    expect(inputs.map((i) => i.step)).toEqual(["0.5", "0.5", "0.5", "0.5"]);
+    // 기본 1.0 / 0.8 / 0.6 / 0.3 → 보통 / 보통 / 조금 / 조금
+    expect(inputs.map((i) => i.value)).toEqual(["1", "1", "0.5", "0.5"]);
+    expect(inputs.map((i) => i.getAttribute("aria-valuetext"))).toEqual(["보통", "보통", "조금", "조금"]);
+    expect([...root.querySelectorAll(".cond-value")].map((o) => o.textContent)).toEqual(["보통", "보통", "조금", "조금"]);
+    const labels = [...root.querySelectorAll(".cond-row label")].map((l) => l.textContent);
+    expect(labels).toEqual(["경사 피하기", "울퉁불퉁한 길 피하기", "높은 연석 피하기", "정보가 없는 길 피하기"]);
+    vi.advanceTimersByTime(300);
+    // 아무것도 움직이지 않았으니 여전히 기본 조건(미리 계산한 경로)이다.
+    expect(root.querySelector(".cond-status")?.textContent).toBe("기본 조건이에요");
+    expect(customCalls().length).toBe(0);
+    expect(currentRoute("lucerne", reachableIdx)?.source).toBe("default");
+    // 움직이면 그 단계 값이 그대로 쓰인다.
+    setSlider(root, 1, "1.5");
+    vi.advanceTimersByTime(300);
+    expect(inputs[1].getAttribute("aria-valuetext")).toBe("많이");
+    expect(currentRoute("lucerne", reachableIdx)?.source).toBe("custom");
+  });
+
   it("keeps the status text after the data finishes loading", async () => {
     const ctx = makeCtx();
     const { root } = await openPanel(ctx);
@@ -206,7 +231,7 @@ describe("conditions panel behaviour", () => {
     expect([...t.querySelectorAll("thead th")].map((h) => h.textContent)).toEqual(["항목", "기본", "내 조건", "차이"]);
     const rows = [...t.querySelectorAll("tbody tr")].map((r) => [...r.children].map((c) => c.textContent));
     expect(rows.map((r) => r[0])).toEqual([
-      "거리", "통과 불가 계단", "최대 경사", "6% 이상 경사 구간", "돌길 구간", "평균 점수", "300m 안 화장실",
+      "거리", "지나갈 수 없는 계단", "최대 경사", "가파른 길(6% 이상)", "돌길", "평균 점수", "300m 안 화장실",
     ]);
     expect(rows[0]).toEqual(["거리", "1.0km", "900m", "−100m"]);
     expect(rows[1][3]).toBe("+1개");

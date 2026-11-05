@@ -1,6 +1,7 @@
+import { HOME_CRUMB } from "../ui/shell";
 import * as Plot from "@observablehq/plot";
 import type { CityIndex, SurfaceClass } from "../data/types";
-import { showCityMarkers } from "../map/layers";
+import { highlightCityMarker, showCityMarkers } from "../map/layers";
 import { scoreColor } from "../map/style";
 import {
   POI_KINDS,
@@ -35,7 +36,7 @@ function surfaceColors(): Record<SurfaceClass, string> {
   };
 }
 
-function dataTable(caption: string, head: string[], rows: string[][]): HTMLElement {
+function dataTable(caption: string, head: string[], rows: (string | Node)[][]): HTMLElement {
   const table = el("table", { class: "metric-table chart-table" }, el("caption", {}, caption));
   const tr = el("tr", {});
   head.forEach((h, i) => tr.append(el("th", { scope: "col", class: i > 0 ? "num" : "" }, h)));
@@ -57,9 +58,28 @@ interface ChartSpec {
   legend?: HTMLElement;
   table: HTMLElement;
   draw(width: number): Element;
+  /** 그래프 하나(svg)의 막대·점 순서대로 그 도시 이름. 마우스를 올리면 지도 마커를 강조한다. */
+  marksCities?: string[];
 }
 
-function chartBlock(spec: ChartSpec): { node: HTMLElement; redraw(): void } {
+type Hover = (cityName: string | null) => void;
+
+/** 막대·점(첫 데이터 표시 묶음)에 마우스를 올리면 그 도시를 알린다. */
+function bindHover(out: Element, names: string[], onHover: Hover): void {
+  const svgs = out.tagName.toLowerCase() === "svg" ? [out] : [...out.querySelectorAll("svg")];
+  for (const svg of svgs) {
+    const group = svg.querySelector('g[aria-label="bar"], g[aria-label="dot"]');
+    if (!group) continue;
+    [...group.children].forEach((mark, i) => {
+      const name = names[i];
+      if (!name) return;
+      mark.addEventListener("pointerenter", () => onHover(name));
+      mark.addEventListener("pointerleave", () => onHover(null));
+    });
+  }
+}
+
+function chartBlock(spec: ChartSpec, onHover: Hover): { node: HTMLElement; redraw(): void } {
   const plotBox = el("div", { class: "chart-plot", role: "img", "aria-label": `${spec.title}. ${spec.sentence}` });
   const tableBox = el("div", { class: "chart-table-wrap", id: `${spec.id}-table`, hidden: "" }, spec.table);
   const toggle = el(
@@ -79,6 +99,7 @@ function chartBlock(spec: ChartSpec): { node: HTMLElement; redraw(): void } {
   const redraw = () => {
     const out = spec.draw(plotBox.clientWidth || 320);
     out.setAttribute("aria-hidden", "true");
+    if (spec.marksCities) bindHover(out, spec.marksCities, onHover);
     plotBox.replaceChildren(out);
   };
   return { node, redraw };
@@ -106,7 +127,7 @@ function commonOpts(width: number, rows: number, marginRight = 12) {
   };
 }
 
-function buildCharts(index: CityIndex): { node: HTMLElement; redraw(): void }[] {
+function buildCharts(index: CityIndex, onHover: Hover): { node: HTMLElement; redraw(): void }[] {
   const scores = sortedScores(index);
   const order = scores.map((s) => s.city);
   const n = order.length;
@@ -115,11 +136,25 @@ function buildCharts(index: CityIndex): { node: HTMLElement; redraw(): void }[] 
   const cov = coverageRows(index);
   const ink = () => cssVar("--ink", "#1B1F24");
 
+  // 점수 표의 도시 이름은 도시 화면 링크다. 포커스하거나 마우스를 올리면 지도 마커를 강조한다.
+  const cityLink = (id: string, name: string): HTMLElement => {
+    const a = el("a", { href: `#/${id}` }, name);
+    a.addEventListener("focus", () => onHover(name));
+    a.addEventListener("blur", () => onHover(null));
+    a.addEventListener("pointerenter", () => onHover(name));
+    a.addEventListener("pointerleave", () => onHover(null));
+    return a;
+  };
   const scoreChart = chartBlock({
     id: "chart-score",
     title: "평균 점수",
     sentence: scoreSentence(index),
-    table: dataTable("도시별 평균 점수", ["도시", "평균 점수"], scores.map((s) => [s.city, `${s.score.toFixed(1)}점`])),
+    marksCities: order,
+    table: dataTable(
+      "도시별 평균 점수",
+      ["도시", "평균 점수"],
+      scores.map((s) => [cityLink(s.id, s.city), `${s.score.toFixed(1)}점`]),
+    ),
     draw: (w) =>
       Plot.plot({
         ...commonOpts(w, n, 32),
@@ -137,13 +172,14 @@ function buildCharts(index: CityIndex): { node: HTMLElement; redraw(): void }[] 
           }),
         ],
       }),
-  });
+  }, onHover);
 
   const colors = surfaceColors();
   const surfaceChart = chartBlock({
     id: "chart-surface",
     title: "노면 구성",
     sentence: surfaceSentence(index),
+    marksCities: mix.map((m) => m.city),
     legend: legendList(SURFACE_ORDER.map((c) => ({ label: SURFACE_LABEL[c], color: c === "unknown" ? "var(--muted)" : colors[c] }))),
     table: dataTable(
       "도시별 노면 구성(길이 기준 비율)",
@@ -164,14 +200,15 @@ function buildCharts(index: CityIndex): { node: HTMLElement; redraw(): void }[] 
         color: { domain: SURFACE_ORDER, range: SURFACE_ORDER.map((c) => colors[c]) },
         marks: [Plot.barX(mix, { x: "share", y: "city", fill: "cls", stroke: cssVar("--surface", "#ffffff"), strokeWidth: 1 })],
       }),
-  });
+  }, onHover);
 
   const poiChart = chartBlock({
     id: "chart-poi",
-    title: "㎢당 편의시설",
+    title: "1㎢마다 편의시설",
     sentence: poiSentence(index),
+    marksCities: order,
     table: dataTable(
-      "도시별 ㎢당 편의시설 수",
+      "도시별 1㎢마다 편의시설 수",
       ["도시", ...POI_KINDS.map((k) => POI_LABEL[k])],
       order.map((city) => [
         city,
@@ -209,21 +246,22 @@ function buildCharts(index: CityIndex): { node: HTMLElement; redraw(): void }[] 
       }
       return grid;
     },
-  });
+  }, onHover);
 
   const accent = cssVar("--accent", "#1F5FD1");
   const warn = cssVar("--warn", "#9A5B00");
   const trustChart = chartBlock({
     id: "chart-trust",
-    title: "데이터 신뢰도",
+    title: "정보가 있는 길",
     sentence: coverageSentence(index),
+    marksCities: cov.map((c) => c.city),
     legend: legendList([
-      { label: "노면 정보 비율", color: "var(--accent)", shape: "dot" },
-      { label: "경사 정보 비율", color: "var(--warn)", shape: "diamond" },
+      { label: "노면이 기록된 길", color: "var(--accent)", shape: "dot" },
+      { label: "경사를 잰 길", color: "var(--warn)", shape: "diamond" },
     ]),
     table: dataTable(
       "도시별 정보가 있는 길의 비율(길이 기준)",
-      ["도시", "노면 정보", "경사 정보"],
+      ["도시", "노면이 기록된 길", "경사를 잰 길"],
       order.map((city) => {
         const f = (m: "surface" | "slope") =>
           `${((cov.find((c) => c.city === city && c.metric === m)?.share ?? 0) * 100).toFixed(1)}%`;
@@ -247,7 +285,7 @@ function buildCharts(index: CityIndex): { node: HTMLElement; redraw(): void }[] 
           }),
         ],
       }),
-  });
+  }, onHover);
 
   return [scoreChart, surfaceChart, poiChart, trustChart];
 }
@@ -263,14 +301,17 @@ export function compareView(): View {
   let restoreSnap: (() => void) | null = null;
   return {
     mount(ctx: AppContext) {
-      ctx.shell.setTitle("도시 비교", "#/");
+      ctx.shell.setTitle("도시 비교", [HOME_CRUMB]);
       const prevSnap = ctx.sheet.snap();
       restoreSnap = () => ctx.sheet.setSnap(prevSnap);
 
-      const charts = buildCharts(ctx.index);
+      const idByName = new Map(ctx.index.cities.map((c) => [c.name_ko, c.id]));
+      const charts = buildCharts(ctx.index, (name) => {
+        highlightCityMarker(ctx.map, name === null ? null : (idByName.get(name) ?? null));
+      });
       const root = el("div", { class: "compare" });
       root.append(
-        el("p", { class: "intro" }, "9개 도시의 보행 네트워크를 같은 기준으로 비교했어요. 점수는 높을수록 휠체어로 다니기 쉬워요."),
+        el("p", { class: "intro" }, `${ctx.index.cities.length}개 도시의 길을 같은 기준으로 비교했어요. 점수는 높을수록 휠체어로 다니기 쉬워요.`),
       );
       for (const c of charts) root.append(c.node);
       ctx.sheet.setContent(root);

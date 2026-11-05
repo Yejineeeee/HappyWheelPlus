@@ -59,17 +59,19 @@ const SEGS = {
   ],
 };
 
-function makeCtx(): AppContext & { navigate: ReturnType<typeof vi.fn>; titles: [string, string | undefined][] } {
+function makeCtx(): AppContext & { navigate: ReturnType<typeof vi.fn>; titles: unknown[][] } {
   document.body.innerHTML = '<div id="map"></div><div id="panel"></div>';
-  const titles: [string, string | undefined][] = [];
+  const titles: unknown[][] = [];
   return {
     map: { map: { getZoom: () => 12, easeTo: vi.fn(), jumpTo: vi.fn() }, fitTo: vi.fn(), isReady: () => true } as never,
     sheet: mountSheet(document.getElementById("panel")!),
     shell: {
       header: document.createElement("header"),
+      pageHead: document.createElement("div"),
+      setLayout: () => {},
       panel: document.getElementById("panel")!,
       mapContainer: document.getElementById("map")!,
-      setTitle: (t: string, b?: string) => titles.push([t, b]),
+      setTitle: (...args: unknown[]) => titles.push(args),
       onThemeChange: () => {},
     },
     index: INDEX,
@@ -116,7 +118,14 @@ describe("nav view", () => {
     const v = navView("paris", 0);
     await v.mount(ctx);
     await flush();
-    expect(ctx.titles[0]).toEqual(["호수 코스 길안내", "#/paris/0"]);
+    expect(ctx.titles[0]).toEqual([
+      "길안내",
+      [
+        { label: "파리", href: "#/paris" },
+        { label: "호수 코스", href: "#/paris/0" },
+      ],
+      "호수 코스 길안내",
+    ]);
     const ins = ctx.sheet.el.querySelector('[aria-live="polite"]')!;
     expect(ins.textContent).toMatch(/오른쪽/);
     expect(ctx.sheet.el.querySelector('[aria-live="assertive"]')).not.toBeNull();

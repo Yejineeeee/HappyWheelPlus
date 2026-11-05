@@ -25,6 +25,7 @@ interface State {
   /** 지도에서 강조할 경로. 나머지는 흐리게 그린다. */
   focus: RouteFocus;
   cityMarkers: maplibregl.Marker[];
+  cityMarkerById: Map<string, maplibregl.Marker>;
   cityDeclutter: (() => void) | null;
   stopMarkers: maplibregl.Marker[];
   userMarker: maplibregl.Marker | null;
@@ -50,6 +51,7 @@ function getState(m: AppMap): State {
       done: null,
       focus: "accessible",
       cityMarkers: [],
+      cityMarkerById: new Map(),
       cityDeclutter: null,
       stopMarkers: [],
       userMarker: null,
@@ -160,6 +162,7 @@ export function showCityMarkers(m: AppMap, cities: CityEntry[], onSelect: (id: s
     );
   }
   s.cityMarkers = [...byId.values()];
+  s.cityMarkerById = byId;
 
   // 점수가 높은 도시부터 라벨을 남기고, 먼저 남긴 라벨과 겹치는 라벨은 숨긴다. 점은 항상 보인다.
   const declutter = () => {
@@ -178,6 +181,14 @@ export function showCityMarkers(m: AppMap, cities: CityEntry[], onSelect: (id: s
   m.map.on("moveend", declutter);
   m.map.on("resize", declutter);
   requestAnimationFrame(declutter);
+}
+
+/** 도시 마커 하나를 강조한다(비교 화면 막대와 연결). null이면 강조를 모두 끈다. */
+export function highlightCityMarker(m: AppMap, id: string | null): void {
+  const s = getState(m);
+  for (const [cid, mk] of s.cityMarkerById) {
+    mk.getElement().classList.toggle("is-highlight", cid === id);
+  }
 }
 
 // ---------- 구간 히트맵 ----------
@@ -593,6 +604,7 @@ export function clearCityLayers(m: AppMap): void {
   s.popup?.remove();
   s.popup = null;
   s.cityMarkers = [];
+  s.cityMarkerById = new Map();
   s.stopMarkers = [];
   s.userMarker = null;
   if (styleReady(m)) {

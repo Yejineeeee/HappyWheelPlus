@@ -79,17 +79,19 @@ function course(over: Partial<Course> = {}): Course {
   };
 }
 
-function makeCtx(): AppContext & { titles: [string, string | undefined][] } {
+function makeCtx(): AppContext & { titles: unknown[][] } {
   document.body.innerHTML = '<div id="map"></div><div id="panel"></div>';
-  const titles: [string, string | undefined][] = [];
+  const titles: unknown[][] = [];
   return {
     map: { fitTo: vi.fn(), isReady: () => true } as never,
     sheet: mountSheet(document.getElementById("panel")!),
     shell: {
       header: document.createElement("header"),
+      pageHead: document.createElement("div"),
+      setLayout: () => {},
       panel: document.getElementById("panel")!,
       mapContainer: document.getElementById("map")!,
-      setTitle: (t: string, b?: string) => titles.push([t, b]),
+      setTitle: (...args: unknown[]) => titles.push(args),
       onThemeChange: () => {},
     },
     index: INDEX,
@@ -115,7 +117,7 @@ describe("course view", () => {
     await courseView("paris", 0).mount(ctx);
     await tick();
     expect(ctx.sheet.el.querySelector(".course-summary")?.textContent).toBe("계단 10개를 피하는 대신 243m 더 가요");
-    expect(ctx.titles[0]).toEqual(["에펠 코스", "#/paris"]);
+    expect(ctx.titles[0]).toEqual(["에펠 코스", [{ label: "파리", href: "#/paris" }]]);
     expect(showRoutes).toHaveBeenCalled();
     expect(showStops).toHaveBeenCalled();
     expect(ctx.sheet.el.querySelector('a[href="#/paris/0/nav"]')).not.toBeNull();
@@ -142,7 +144,7 @@ describe("course view", () => {
     const ctx = makeCtx();
     await courseView("paris", 0).mount(ctx);
     await tick();
-    expect(ctx.sheet.el.textContent).toContain("정류장 위치가 실제와 최대 42m 떨어져 있어 근사 결과예요");
+    expect(ctx.sheet.el.textContent).toContain("위치 오차 있음 · 정류장이 실제 위치와 최대 42m 떨어져 있어요");
   });
 
   it("unreachable course shows message and no accessible column", async () => {
@@ -173,8 +175,11 @@ describe("course view", () => {
     const ctx = makeCtx();
     await courseView("paris", 0).mount(ctx);
     await tick();
-    expect(ctx.sheet.el.textContent).toContain("현장 평가");
-    expect(ctx.sheet.el.textContent).toContain("인도가 좁아요");
+    const card = ctx.sheet.el.querySelector(".field-card")!;
+    expect(card.textContent).toContain("탐방팀 기록");
+    expect(card.textContent).toContain("탐방팀 체감: 보통");
+    expect(card.textContent).toContain("만족도 ★4/5");
+    expect(card.textContent).toContain("인도가 좁아요");
   });
 
   it("course index out of range renders not-found", async () => {
@@ -249,7 +254,7 @@ describe("course view conditions panel", () => {
     expect(panel.querySelectorAll('input[type="range"]').length).toBe(4);
     expect(panel.querySelectorAll('input[type="checkbox"]').length).toBe(4);
     const slope = panel.querySelector<HTMLInputElement>('input[type="range"]')!;
-    expect(slope.getAttribute("aria-valuetext")).toBe("경사 중요도 1.0");
+    expect(slope.getAttribute("aria-valuetext")).toBe("보통");
     btn.click();
     expect(panel.hidden).toBe(true);
   });
@@ -296,7 +301,7 @@ describe("profileChart", () => {
       [75, 12, 1],
       [100, 12, 6.5],
     ]);
-    expect(node.textContent).toContain("최고 13m · 최저 10m · 6% 이상 구간 2곳");
+    expect(node.textContent).toContain("최고 13m · 최저 10m · 가파른 길(6% 이상) 2곳");
     expect(node.querySelector("svg")).not.toBeNull();
   });
 

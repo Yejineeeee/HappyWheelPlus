@@ -1,10 +1,11 @@
+import { HOME_CRUMB } from "../ui/shell";
 import type { FeatureCollection, LineString, Point } from "geojson";
 import { loadCourses, loadPois, loadSegments } from "../data/load";
 import type { CityEntry, Course, PoiKind, PoiProps, SegmentProps } from "../data/types";
 import { showPois, showSegments } from "../map/layers";
-import { SCORE_STOPS } from "../map/style";
-import { badge, el, errorBlock, loadingBlock, stat, stats } from "../ui/components";
-import { fmtM, fmtPct, scoreLabel } from "../ui/format";
+import { SCORE_STOPS, scoreColor } from "../map/style";
+import { badge, el, errorBlock, kvList, loadingBlock, scoreMeter } from "../ui/components";
+import { fmtM, scoreLabel } from "../ui/format";
 import { fitTo } from "./mapFit";
 import { notFoundView } from "./notFound";
 import type { AppContext, View } from "./types";
@@ -34,10 +35,13 @@ function courseCard(c: CityEntry, course: Course, ctx: AppContext): HTMLElement 
   const scoreText = !acc ? "경로 없음" : score === null ? "점수 없음" : `${Math.round(score)}점`;
   const scoreEl = el("span", { class: "course-score" });
   if (acc && score !== null) {
+    const dot = el("span", { class: "score-dot", "aria-hidden": "true" });
+    dot.style.background = scoreColor(score);
     scoreEl.append(
-      el("span", { class: "visually-hidden" }, "접근성 점수 "),
+      el("span", { class: "visually-hidden" }, "점수 "),
+      dot,
       el("span", { class: "score-num" }, String(Math.round(score))),
-      el("span", { class: "score-unit" }, "점"),
+      el("span", { class: "score-label" }, scoreLabel(score)),
     );
   } else {
     scoreEl.classList.add("is-empty");
@@ -54,17 +58,10 @@ function courseCard(c: CityEntry, course: Course, ctx: AppContext): HTMLElement 
   if (route.metrics.max_grade_pct !== null) facts.push(`최대 경사 ${route.metrics.max_grade_pct.toFixed(1)}%`);
   const steps = course.comparison?.steps_avoided ?? 0;
 
+  // 카드에는 계산 결과만 둔다. 탐방팀 현장 기록은 코스 상세에서 보여 준다.
   const badges = el("div", { class: "course-badges" });
-  if (steps > 0) badges.append(badge(`계단 ${steps}개 회피`, "good"));
-  if (course.field) {
-    const b = badge(`현장 난이도 ${course.field.difficulty}/5 · `, "field");
-    b.append(
-      el("span", { "aria-hidden": "true" }, `★${course.field.stars}`),
-      el("span", { class: "visually-hidden" }, `현장 별점 ${course.field.stars}`),
-    );
-    badges.append(b);
-  }
-  if (course.approximate) badges.append(badge("근사 결과", "warn"));
+  if (steps > 0) badges.append(badge(`계단 ${steps}개 피함`, "good"));
+  if (course.approximate) badges.append(badge("위치 오차 있음", "warn"));
 
   const btn = el(
     "button",
@@ -77,25 +74,20 @@ function courseCard(c: CityEntry, course: Course, ctx: AppContext): HTMLElement 
   return btn;
 }
 
+const pctInt = (share: number) => `${Math.round(share * 100)}%`;
+
 function metricsSection(c: CityEntry): HTMLElement {
   const m = c.metrics;
-  const mean = Math.round(m.mean_score);
   return el(
     "div",
     { class: "city-metrics" },
-    stats(
-      [
-        stat("평균 점수", String(mean), { unit: "점", hint: scoreLabel(m.mean_score), size: "lg" }),
-        stat("분석한 길", Math.round(m.network_km).toLocaleString("ko-KR"), { unit: "km" }),
-        stat("㎢당 화장실", m.poi_per_km2.toilet.toFixed(1), { unit: "곳" }),
-      ],
-      "stats-3",
-    ),
-    el(
-      "p",
-      { class: "city-coverage" },
-      `데이터 신뢰도 · 노면 정보 ${fmtPct(m.surface_coverage * 100)} · 경사 정보 ${fmtPct(m.slope_coverage * 100)}`,
-    ),
+    kvList([
+      { label: "평균 점수", value: scoreMeter(m.mean_score) },
+      { label: "분석한 길", value: `${Math.round(m.network_km).toLocaleString("ko-KR")}km` },
+      { label: "1㎢마다 화장실", value: `${m.poi_per_km2.toilet.toFixed(1)}곳` },
+      { label: "노면이 기록된 길", value: pctInt(m.surface_coverage) },
+      { label: "경사를 잰 길", value: pctInt(m.slope_coverage) },
+    ]),
   );
 }
 
@@ -137,7 +129,7 @@ export function cityView(cityId: string): View {
         inner.mount(ctx);
         return;
       }
-      ctx.shell.setTitle(city.name_ko, "#/");
+      ctx.shell.setTitle(city.name_ko, [HOME_CRUMB]);
       ctx.sheet.setSnap("half");
       fitTo(ctx, cityBounds(city));
 

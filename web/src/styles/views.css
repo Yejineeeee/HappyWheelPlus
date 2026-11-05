@@ -50,23 +50,11 @@
   border: 0;
 }
 
-/* 큰 점수 숫자(카드 오른쪽) */
-.score-num { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.1; }
-.score-unit { margin-left: 1px; font-size: 13px; font-weight: 600; color: var(--muted); }
+/* 카드 오른쪽 점수: 색 점 + 숫자(16px 600) + 등급 말 */
+.score-num { font-size: 16px; font-weight: 600; }
+.score-label { font-size: 13px; color: var(--muted); }
 
 /* ---------- 홈 ---------- */
-.stats-summary {
-  grid-template-columns: 1fr 1fr 1.7fr 1.2fr;
-  gap: var(--space-3);
-  padding: var(--space-4);
-  border-radius: var(--radius-card);
-  background: var(--surface-2);
-}
-.stats-summary .stat-value { font-size: 22px; }
-@media (max-width: 360px) {
-  .stats-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-
 .country-group .section-title { margin-bottom: var(--space-2); }
 .city-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
 .city-row {
@@ -90,13 +78,11 @@
 .city-text { display: flex; flex-direction: column; min-width: 0; }
 .city-name { font-size: 16px; font-weight: 700; }
 .city-meta { color: var(--muted); font-size: 13px; }
-.city-score { display: grid; grid-template-columns: auto auto; align-items: baseline; justify-items: end; column-gap: 1px; text-align: right; }
-.city-score .score-label { grid-column: 1 / -1; font-size: 12px; color: var(--muted); font-weight: 500; }
-.home-links { display: flex; gap: var(--space-2); margin-top: var(--space-5); flex-wrap: wrap; }
+.city-score,
+.course-score { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
 
 /* ---------- 도시 ---------- */
-.city-metrics .stats { align-items: end; }
-.city-coverage { margin: var(--space-3) 0 0; color: var(--muted); font-size: 13px; }
+.city-metrics { margin-top: calc(-1 * var(--space-2)); }
 
 .legend ul { list-style: none; display: flex; gap: var(--space-4); margin: var(--space-2) 0 0; padding: 0; font-size: 13px; }
 .legend li { display: flex; align-items: center; gap: 6px; }
@@ -126,9 +112,8 @@
 
 .course-list { display: flex; flex-direction: column; gap: var(--space-2); }
 .course-card { padding: var(--space-3) var(--space-4); }
-.course-head { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-3); }
+.course-head { display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); }
 .course-name { font-size: 15px; font-weight: 700; }
-.course-score { white-space: nowrap; }
 .course-score.is-empty { font-size: 13px; font-weight: 700; color: var(--muted); }
 .course-sub { margin-top: 2px; color: var(--muted); font-size: 13px; }
 .course-badges { display: flex; flex-wrap: wrap; gap: 6px; margin-top: var(--space-2); }
@@ -157,6 +142,10 @@
   box-sizing: border-box;
 }
 .city-dot::after { content: ""; position: absolute; inset: -14px; border-radius: 50%; }
+/* 비교 화면 막대와 연결된 강조 */
+.city-marker.is-highlight { z-index: 2; }
+.city-marker.is-highlight .city-dot { transform: scale(1.4); box-shadow: 0 0 0 2px var(--ink); }
+.city-marker.is-highlight .city-label { display: inline-block !important; background: var(--ink); color: var(--surface); }
 .city-label {
   padding: 3px 10px;
   border-radius: var(--radius-pill);
@@ -171,12 +160,9 @@
 /* ---------- 코스 상세 ---------- */
 .course { display: flex; flex-direction: column; gap: var(--space-3); }
 .course .section-title { margin-bottom: 0; }
-.course-summary { margin: 0 0 var(--space-3); font-size: 17px; font-weight: 700; line-height: 1.4; letter-spacing: -0.01em; }
+.course-summary { margin: 0 0 var(--space-1); font-size: 16px; font-weight: 600; line-height: 1.45; }
 .notice { margin: 0; padding: 10px var(--space-3); border-radius: var(--radius-sm); background: var(--warn-bg); color: var(--warn); font-weight: 600; font-size: 14px; }
-.stats-inline { grid-template-columns: repeat(auto-fit, minmax(52px, 1fr)); gap: var(--space-2); }
-.stats-inline .stat-value { font-size: 17px; }
-.stats-inline .stat-unit { font-size: 12px; }
-.route-summary-row { display: flex; flex-direction: column; gap: var(--space-3); }
+.route-summary-row { display: flex; flex-direction: column; margin-top: var(--space-3); }
 .route-summary-row .route-nav { align-self: stretch; }
 
 /* 지도 아래 떠 있는 경로 요약 바(넓은 화면) */
@@ -201,11 +187,20 @@
     color: var(--ink);
     box-shadow: var(--shadow);
   }
-  .route-bar .stats-inline {
+  /* 요약 바: "거리 1.8km" 처럼 라벨과 값을 한 줄로 */
+  .route-bar .kv-inline {
     display: flex;
     flex-wrap: wrap;
-    gap: var(--space-2) var(--space-5);
+    gap: var(--space-1) var(--space-4);
   }
+  .route-bar .kv-inline .kv-row {
+    min-height: 0;
+    padding: 0;
+    border: 0;
+    gap: 6px;
+    justify-content: flex-start;
+  }
+  .route-bar .kv-inline dt { font-size: 13px; }
 }
 
 .metric-table td.better { font-weight: 700; }
@@ -233,8 +228,11 @@
 }
 .poi-near ul { margin: 0; padding-left: 18px; }
 .field-card { padding: var(--space-4); border-radius: var(--radius-card); background: var(--surface-2); }
-.field-card h3 { margin: 0 0 var(--space-1); font-size: 15px; }
+.field-card h3 { margin: 0 0 var(--space-2); font-size: 15px; }
 .field-card p { margin: 0 0 var(--space-1); }
+.field-feel { font-weight: 600; }
+.field-scale { color: var(--muted); font-size: 13px; }
+.field-note { margin-top: var(--space-2) !important; }
 .course-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .course-actions .btn { flex: 1; }
 .course-actions .btn[aria-disabled="true"], .course-actions .btn:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -255,7 +253,11 @@
 .cond-row { display: grid; grid-template-columns: 1fr auto; align-items: center; column-gap: var(--space-2); }
 .cond-row label { font-weight: 600; }
 .cond-row input[type="range"] { grid-column: 1 / -1; width: 100%; min-height: 44px; margin: 0; accent-color: var(--accent); }
-.cond-value { font-variant-numeric: tabular-nums; font-weight: 700; min-width: 2.5em; text-align: right; }
+.cond-value { font-weight: 600; text-align: right; }
+.cond-ticks { grid-column: 1 / -1; display: flex; justify-content: space-between; margin: -6px 0 var(--space-2); color: var(--muted); font-size: 11px; }
+.cond-ticks span { flex: 1; text-align: center; }
+.cond-ticks span:first-child { text-align: left; }
+.cond-ticks span:last-child { text-align: right; }
 .cond-pois { margin: var(--space-2) 0; padding: 0; border: 0; display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-4); }
 .cond-pois legend { padding: 0; margin-bottom: var(--space-1); font-weight: 700; }
 .cond-check { display: inline-flex; align-items: center; gap: var(--space-2); min-height: 44px; cursor: pointer; }
@@ -284,16 +286,16 @@
 .chart-table th, .chart-table td { white-space: nowrap; }
 
 /* ---------- 분석 방법 ---------- */
-.about { line-height: 1.65; }
+.about { font-size: 16px; line-height: 1.7; padding-bottom: var(--space-6); }
 .about-section { padding: var(--space-1) 0 var(--space-2); }
-.about-section h2 { margin: var(--space-5) 0 var(--space-2); font-size: 16px; font-weight: 700; }
+.about-section h2 { margin: var(--space-5) 0 var(--space-2); font-size: 18px; font-weight: 700; }
 .about-section:first-child h2 { margin-top: 0; }
 .about p { margin: 0 0 10px; }
 .about-list { margin: 0 0 10px; padding-left: 20px; }
 .about-list li { margin-bottom: 6px; overflow-wrap: anywhere; }
 .about-formula { padding: var(--space-3) var(--space-4); background: var(--surface-2); border-radius: var(--radius-sm); font-weight: 600; font-size: 14px; }
 .about-table-wrap { overflow-x: auto; margin: var(--space-2) 0 var(--space-3); }
-.about-table th, .about-table td { text-align: left; vertical-align: top; font-size: 13px; }
+.about-table th, .about-table td { text-align: left; vertical-align: top; font-size: 14px; line-height: 1.55; }
 .about a { color: var(--ink); text-decoration-thickness: 1px; text-underline-offset: 3px; font-weight: 600; }
 
 /* ---------- 길안내 ---------- */

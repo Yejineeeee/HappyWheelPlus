@@ -79,8 +79,8 @@ describe("chart data", () => {
   it("interpretation sentences are computed from data", () => {
     expect(scoreSentence(INDEX)).toBe("평균 점수가 가장 높은 도시는 밀라노(93점), 가장 낮은 도시는 인터라켄(52점)이에요");
     expect(surfaceSentence(INDEX)).toBe("노면 정보가 없는 길 비율이 가장 큰 도시는 인터라켄(47%), 가장 작은 도시는 밀라노(20%)예요");
-    expect(poiSentence(INDEX)).toBe("㎢당 화장실은 파리(15.6개)가 가장 많고 인터라켄(0.9개)이 가장 적어요");
-    expect(coverageSentence(INDEX)).toBe("노면 정보 비율이 가장 낮은 도시는 인터라켄(53%), 경사 정보 비율이 가장 낮은 도시는 파리(95%)예요");
+    expect(poiSentence(INDEX)).toBe("1㎢마다 화장실은 파리(15.6개)가 가장 많고 인터라켄(0.9개)이 가장 적어요");
+    expect(coverageSentence(INDEX)).toBe("노면이 기록된 길이 가장 적은 도시는 인터라켄(53%), 경사를 잰 길이 가장 적은 도시는 파리(95%)예요");
   });
 
   it("sentences stay safe with a single city or none", () => {

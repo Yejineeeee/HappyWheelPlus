@@ -37,7 +37,8 @@ function parse(data: unknown): AiResponse | null {
     const raw = (w as Record<string, unknown>)[k];
     if (typeof raw !== "number" || Number.isNaN(raw)) return null;
     const clamped = Math.min(2, Math.max(0, raw));
-    weights[k] = Math.round(clamped * 10) / 10;
+    // 슬라이더 단계(0.5)에 맞춰 반올림한다.
+    weights[k] = Math.round(clamped * 2) / 2;
   }
   const pois = Array.isArray(d.required_pois) ? d.required_pois : [];
   const required = KINDS.filter((k) => pois.includes(k));

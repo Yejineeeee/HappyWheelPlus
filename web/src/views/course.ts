@@ -3,7 +3,7 @@ import { setCurrentRoute } from "../core/conditions";
 import { loadCourses, loadPois, loadSegments } from "../data/load";
 import type { Course, PoiKind, RouteData } from "../data/types";
 import { hasSegments, setRouteFocus, showBlockedAt, showRoutes, showSegments, showStops } from "../map/layers";
-import { el, errorBlock, loadingBlock, segmented, stat, stats, type Segmented } from "../ui/components";
+import { el, errorBlock, kvList, loadingBlock, scoreMeter, segmented, type KvRow, type Segmented } from "../ui/components";
 import { fmtDelta, fmtM, fmtPct } from "../ui/format";
 import { icon } from "../ui/icons";
 import { disposeProfileChart, profileChart } from "../ui/profileChart";
@@ -64,10 +64,10 @@ interface Row {
 
 const ROWS: Row[] = [
   { label: "거리", get: (r) => r.metrics.length_m, fmt: (v) => (v === null ? "–" : fmtM(v)), better: "low" },
-  { label: "통과 불가 계단", get: (r) => r.metrics.steps_count, fmt: (v) => (v === null ? "–" : `${v}개`), better: "low" },
+  { label: "지나갈 수 없는 계단", get: (r) => r.metrics.steps_count, fmt: (v) => (v === null ? "–" : `${v}개`), better: "low" },
   { label: "최대 경사", get: (r) => r.metrics.max_grade_pct, fmt: (v) => fmtPct(v), better: "low" },
-  { label: "6% 이상 경사 구간", get: (r) => r.metrics.steep_m, fmt: (v) => (v === null ? "–" : fmtM(v)), better: "low" },
-  { label: "돌길 구간", get: (r) => r.metrics.cobble_m, fmt: (v) => (v === null ? "–" : fmtM(v)), better: "low" },
+  { label: "가파른 길(6% 이상)", get: (r) => r.metrics.steep_m, fmt: (v) => (v === null ? "–" : fmtM(v)), better: "low" },
+  { label: "돌길", get: (r) => r.metrics.cobble_m, fmt: (v) => (v === null ? "–" : fmtM(v)), better: "low" },
   {
     label: "평균 점수",
     get: (r) => r.metrics.mean_score,
@@ -86,14 +86,14 @@ function comparisonTable(c: Course): HTMLElement {
   const short = c.routes.shortest;
   const acc = c.reachable ? c.routes.accessible : null;
   const table = el("table", { class: "metric-table" });
-  table.append(el("caption", {}, acc ? "최단 경로와 접근성 경로 비교" : "최단 경로 지표"));
+  table.append(el("caption", {}, acc ? "최단 경로와 휠체어 경로 비교" : "최단 경로 지표"));
   const head = el(
     "tr",
     {},
     el("th", { scope: "col" }, "항목"),
     el("th", { scope: "col", class: "num" }, "최단"),
   );
-  if (acc) head.append(el("th", { scope: "col", class: "num" }, "접근성"));
+  if (acc) head.append(el("th", { scope: "col", class: "num" }, "휠체어"));
   table.append(el("thead", {}, head));
   const body = el("tbody");
   for (const row of ROWS) {
@@ -112,28 +112,33 @@ function comparisonTable(c: Course): HTMLElement {
   return table;
 }
 
-/** 경로 요약: 거리 · 추가 거리 · 피한 계단 · 최대 경사 · 평균 점수 + 길안내 버튼. */
-function routeSummary(c: Course, cityId: string, variant: "sheet" | "map"): HTMLElement {
+/** 경로 요약 행: 거리 · 추가 거리 · 피한 계단 · 최대 경사 · 평균 점수. 굵은 강조는 추가 거리 하나만. */
+function summaryRows(c: Course, meter: boolean): KvRow[] {
   const acc = c.reachable ? c.routes.accessible : null;
   const r = acc ?? c.routes.shortest;
-  const items = [stat("거리", fmtM(r.metrics.length_m))];
+  const rows: KvRow[] = [{ label: "거리", value: fmtM(r.metrics.length_m) }];
   if (acc) {
     const extra = c.comparison?.extra_m ?? acc.metrics.length_m - c.routes.shortest.metrics.length_m;
-    items.push(stat("추가 거리", fmtDelta(extra)));
-    items.push(stat("피한 계단", String(c.comparison?.steps_avoided ?? 0), { unit: "개" }));
+    rows.push({ label: "추가 거리", value: fmtDelta(extra), strong: meter });
+    rows.push({ label: "피한 계단", value: `${c.comparison?.steps_avoided ?? 0}개` });
   }
-  items.push(stat("최대 경사", fmtPct(r.metrics.max_grade_pct)));
-  items.push(
-    stat("평균 점수", r.metrics.mean_score === null ? "–" : String(Math.round(r.metrics.mean_score)), {
-      unit: r.metrics.mean_score === null ? "" : "점",
-    }),
-  );
+  rows.push({ label: "최대 경사", value: fmtPct(r.metrics.max_grade_pct) });
+  const score = r.metrics.mean_score;
+  rows.push({
+    label: "평균 점수",
+    value: meter ? scoreMeter(score) : score === null ? "–" : String(Math.round(score)),
+  });
+  return rows;
+}
+
+/** 패널 위 헤드라인과 키-값 목록(sheet), 또는 지도 아래 떠 있는 요약 바(map). */
+function routeSummary(c: Course, cityId: string, variant: "sheet" | "map"): HTMLElement {
   const nav = el("a", { href: `#/${cityId}/${c.index}/nav`, class: "btn route-nav" }, icon("navigation", 18), "길안내");
   if (variant === "map") {
     return el(
       "section",
       { class: "route-bar", "aria-label": "경로 요약" },
-      stats(items, "stats-inline"),
+      kvList(summaryRows(c, false), "kv-inline"),
       nav,
     );
   }
@@ -141,7 +146,8 @@ function routeSummary(c: Course, cityId: string, variant: "sheet" | "map"): HTML
     "section",
     { class: "route-summary", "aria-label": "경로 요약" },
     el("p", { class: "course-summary" }, summarySentence(c)),
-    el("div", { class: "route-summary-row" }, stats(items, "stats-inline"), nav),
+    kvList(summaryRows(c, true)),
+    el("div", { class: "route-summary-row" }, nav),
   );
 }
 
@@ -160,19 +166,24 @@ function stopsList(c: Course): HTMLElement {
   return ol;
 }
 
+const FEEL: Record<number, string> = { 1: "아주 쉬움", 2: "쉬움", 3: "보통", 4: "꽤 힘듦", 5: "아주 힘듦" };
+
+/** 탐방팀 현장 기록: 체감 난이도와 만족도(별점), 메모. 계산 점수와 섞지 않는다. */
 function fieldCard(c: Course): HTMLElement | null {
   if (!c.field) return null;
   const f = c.field;
+  const stars = Math.max(0, Math.min(5, f.stars));
   const card = el(
     "section",
-    { class: "field-card", "aria-label": "현장 평가" },
-    el("h3", {}, "현장 평가"),
+    { class: "field-card", "aria-label": "탐방팀 기록" },
+    el("h3", {}, "탐방팀 기록"),
+    el("p", { class: "field-feel" }, `탐방팀 체감: ${FEEL[f.difficulty] ?? `${f.difficulty}/5`}`),
+    el("p", { class: "field-scale" }, "1 아주 쉬움 · 2 쉬움 · 3 보통 · 4 꽤 힘듦 · 5 아주 힘듦"),
     el(
       "p",
-      { class: "field-meta" },
-      `난이도 ${f.difficulty}/5 · `,
-      el("span", { "aria-hidden": "true" }, "★".repeat(Math.max(0, Math.min(5, f.stars)))),
-      el("span", { class: "visually-hidden" }, `별점 ${f.stars}점`),
+      { class: "field-stars" },
+      el("span", { "aria-hidden": "true" }, `만족도 ★${stars}/5`),
+      el("span", { class: "visually-hidden" }, `만족도 5점 만점에 ${stars}점`),
     ),
   );
   if (f.note) card.append(el("p", { class: "field-note" }, f.note));
@@ -247,7 +258,7 @@ export function courseView(cityId: string, courseIndex: number): View {
       };
 
       const render = (course: Course): void => {
-        ctx.shell.setTitle(course.name, `#/${cityId}`);
+        ctx.shell.setTitle(course.name, [{ label: city.name_ko, href: `#/${cityId}` }]);
         ctx.sheet.setSnap("half");
         const acc = course.reachable ? course.routes.accessible : null;
         touchedMap = true;
@@ -275,7 +286,8 @@ export function courseView(cityId: string, courseIndex: number): View {
             el(
               "p",
               { class: "notice notice-warn", role: "note" },
-              `정류장 위치가 실제와 최대 ${Math.round(course.snap_max_m)}m 떨어져 있어 근사 결과예요`,
+              el("strong", {}, "위치 오차 있음"),
+              ` · 정류장이 실제 위치와 최대 ${Math.round(course.snap_max_m)}m 떨어져 있어요`,
             ),
           );
         }
@@ -328,7 +340,7 @@ export function courseView(cityId: string, courseIndex: number): View {
 
         root.append(comparisonTable(course));
 
-        root.append(el("h3", { class: "section-title" }, "경사 단면"));
+        root.append(el("h3", { class: "section-title" }, "오르막·내리막"));
         const profileHolder = el("div", { class: "profile-holder" });
         const drawProfile = (rows: RouteData["profile"]): void => {
           disposeProfileChart(profileHolder.firstElementChild);

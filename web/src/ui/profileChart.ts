@@ -118,7 +118,7 @@ export function profileChart(rows: ProfileRow[], opts: { compare?: ProfileRow[] 
       marks,
     });
     svg.setAttribute("role", "img");
-    svg.setAttribute("aria-label", `고도 단면 그래프(가로축은 이동 거리). 최고 ${Math.round(max)}m, 최저 ${Math.round(min)}m`);
+    svg.setAttribute("aria-label", `오르막·내리막 그래프(가로축은 이동 거리). 최고 ${Math.round(max)}m, 최저 ${Math.round(min)}m`);
     holder.replaceChildren(svg);
   };
 
@@ -138,7 +138,7 @@ export function profileChart(rows: ProfileRow[], opts: { compare?: ProfileRow[] 
     el(
       "p",
       { class: "profile-summary" },
-      `최고 ${Math.round(max)}m · 최저 ${Math.round(min)}m · ${STEEP_PCT}% 이상 구간 ${bands.length}곳`,
+      `최고 ${Math.round(max)}m · 최저 ${Math.round(min)}m · 가파른 길(${STEEP_PCT}% 이상) ${bands.length}곳`,
     ),
   );
 

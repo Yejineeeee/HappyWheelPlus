@@ -1,3 +1,6 @@
+import { scoreColor } from "../map/style";
+import { scoreLabel } from "./format";
+
 export function el<K extends keyof HTMLElementTagNameMap>(
   tag: K,
   attrs: Record<string, string> = {},
@@ -64,26 +67,53 @@ export function notFoundBlock(): HTMLElement {
   );
 }
 
-export interface StatOpts {
-  /** 값 뒤에 작게 붙는 단위나 설명(예: "점", "km"). */
-  unit?: string;
-  /** 값 아래 한 줄 보조 설명. */
-  hint?: string;
-  size?: "md" | "lg";
+export interface KvRow {
+  label: string;
+  value: string | Node;
+  /** 화면에서 하나만 굵게 강조할 값. */
+  strong?: boolean;
 }
 
-/** 수치 묶음 한 칸: 라벨(작은 회색) 위, 값(굵은 숫자) 아래. `stats()` 안에 넣는다. */
-export function stat(label: string, value: string, opts: StatOpts = {}): HTMLElement {
-  const dd = el("dd", { class: "stat-value" }, value);
-  if (opts.unit) dd.append(el("span", { class: "stat-unit" }, opts.unit));
-  const node = el("div", { class: opts.size === "lg" ? "stat stat-lg" : "stat" }, el("dt", { class: "stat-label" }, label), dd);
-  if (opts.hint) node.append(el("dd", { class: "stat-hint" }, opts.hint));
+/** 2열 키-값 목록(dl): 왼쪽 라벨(회색), 오른쪽 값, 줄 사이 1px 구분선. */
+export function kvList(rows: KvRow[], cls = ""): HTMLElement {
+  const dl = el("dl", { class: cls ? `kv ${cls}` : "kv" });
+  for (const r of rows) {
+    dl.append(
+      el(
+        "div",
+        { class: r.strong ? "kv-row is-strong" : "kv-row" },
+        el("dt", {}, r.label),
+        el("dd", {}, r.value),
+      ),
+    );
+  }
+  return dl;
+}
+
+/** 점수 표시: 점수 색 점 + 숫자 + 등급 말 + 0~100 가는 막대. */
+export function scoreMeter(score: number | null): HTMLElement {
+  const node = el("span", { class: "score-meter" });
+  if (score === null) {
+    node.append(el("span", { class: "score-meter-num" }, "–"));
+    return node;
+  }
+  const v = Math.max(0, Math.min(100, score));
+  const dot = el("span", { class: "score-dot", "aria-hidden": "true" });
+  dot.style.background = scoreColor(v);
+  const fill = el("span", { class: "score-bar-fill" });
+  fill.style.width = `${v}%`;
+  fill.style.background = scoreColor(v);
+  node.append(
+    el(
+      "span",
+      { class: "score-meter-line" },
+      dot,
+      el("span", { class: "score-meter-num" }, String(Math.round(score))),
+      el("span", { class: "score-meter-label" }, scoreLabel(score)),
+    ),
+    el("span", { class: "score-bar", "aria-hidden": "true" }, fill),
+  );
   return node;
-}
-
-/** 수치 묶음 목록(dl). */
-export function stats(items: HTMLElement[], cls = ""): HTMLElement {
-  return el("dl", { class: cls ? `stats ${cls}` : "stats" }, ...items);
 }
 
 export interface Segmented<T extends string> {

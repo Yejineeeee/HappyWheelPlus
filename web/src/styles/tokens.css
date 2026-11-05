@@ -42,7 +42,8 @@
   --gutter: 16px;
 
   --panel-width: 400px;
-  --header-h: 56px;
+  --panel-width-wide: 560px;
+  --header-h: 48px;
   --sheet-collapsed: 132px;
   --sheet-half: 50vh;
   --sheet-full: 88vh;

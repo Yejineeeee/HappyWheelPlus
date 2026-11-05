@@ -115,7 +115,14 @@ export function navView(cityId: string, courseIndex: number): View {
       };
 
       const begin = (course: Course, features: SegFeature[]): void => {
-        ctx.shell.setTitle(`${course.name} 길안내`, `#/${cityId}/${course.index}`);
+        ctx.shell.setTitle(
+          "길안내",
+          [
+            { label: city.name_ko, href: `#/${cityId}` },
+            { label: course.name, href: `#/${cityId}/${course.index}` },
+          ],
+          `${course.name} 길안내`,
+        );
         const cur = currentRoute(cityId, course.index);
         const fallback = course.reachable && course.routes.accessible ? course.routes.accessible : course.routes.shortest;
         const coords: LngLat[] = cur && cur.coords.length > 1 ? cur.coords : fallback.coords;

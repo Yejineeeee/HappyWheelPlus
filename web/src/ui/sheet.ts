@@ -16,7 +16,8 @@ function heightPx(s: Snap): number {
   return s === "half" ? vh * 0.5 : vh * 0.88;
 }
 
-export function mountSheet(panel: HTMLElement): Sheet {
+/** head가 있으면 손잡이와 본문 사이에 둔다(스크롤되지 않는 제목 영역). */
+export function mountSheet(panel: HTMLElement, head?: HTMLElement): Sheet {
   panel.classList.add("sheet");
   panel.setAttribute("role", "region");
   panel.setAttribute("aria-label", "정보 패널");
@@ -33,7 +34,8 @@ export function mountSheet(panel: HTMLElement): Sheet {
 
   const content = document.createElement("div");
   content.className = "sheet-content";
-  panel.append(handle, content);
+  if (head) panel.append(handle, head, content);
+  else panel.append(handle, content);
 
   const mq = window.matchMedia?.(WIDE);
   let wide = mq?.matches ?? false;

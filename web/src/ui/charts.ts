@@ -102,12 +102,12 @@ export function poiSentence(index: CityIndex): string {
   if (index.cities.length === 0) return "";
   const { max, min } = extremes(index.cities, (c) => c.metrics.poi_per_km2.toilet);
   const f = (c: typeof max) => `${c.name_ko}(${c.metrics.poi_per_km2.toilet.toFixed(1)}개)`;
-  return `㎢당 화장실은 ${josa(f(max), "이", "가")} 가장 많고 ${josa(f(min), "이", "가")} 가장 적어요`;
+  return `1㎢마다 화장실은 ${josa(f(max), "이", "가")} 가장 많고 ${josa(f(min), "이", "가")} 가장 적어요`;
 }
 
 export function coverageSentence(index: CityIndex): string {
   if (index.cities.length === 0) return "";
   const s = extremes(index.cities, (c) => c.metrics.surface_coverage).min;
   const g = extremes(index.cities, (c) => c.metrics.slope_coverage).min;
-  return `노면 정보 비율이 가장 낮은 도시는 ${s.name_ko}(${pct(s.metrics.surface_coverage)}), 경사 정보 비율이 가장 낮은 도시는 ${josa(`${g.name_ko}(${pct(g.metrics.slope_coverage)})`, "이에요", "예요")}`;
+  return `노면이 기록된 길이 가장 적은 도시는 ${s.name_ko}(${pct(s.metrics.surface_coverage)}), 경사를 잰 길이 가장 적은 도시는 ${josa(`${g.name_ko}(${pct(g.metrics.slope_coverage)})`, "이에요", "예요")}`;
 }

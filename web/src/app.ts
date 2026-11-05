@@ -51,7 +51,7 @@ function layerContext(route: Route): string | null {
 
 export function startApp(root: HTMLElement): void {
   const shell = mountShell(root);
-  const sheet = mountSheet(shell.panel);
+  const sheet = mountSheet(shell.panel, shell.pageHead);
   const theme = document.documentElement.dataset.theme === "dark" ? "dark" : "light";
   const map = createMap(shell.mapContainer, theme);
   // data-theme은 셸이 먼저 바꾼 뒤 이 콜백이 불리므로 지도 레이어가 새 색을 읽는다.
@@ -68,6 +68,7 @@ export function startApp(root: HTMLElement): void {
       current.view.unmount();
       current = null;
     }
+    shell.setLayout(route.name === "about" ? "reading" : route.name === "compare" ? "wide" : "default");
     const key = layerContext(route);
     if (key !== layerKey) clearCityLayers(map);
     layerKey = key;
@@ -87,7 +88,7 @@ export function startApp(root: HTMLElement): void {
     };
     const fail = () => {
       if (ctl.signal.aborted) return;
-      shell.setTitle("HappyWheel+");
+      shell.setTitle(null);
       sheet.setContent(errorBlock("화면을 열지 못했어요.", () => show(parseRoute(location.hash))));
     };
     try {
@@ -100,7 +101,7 @@ export function startApp(root: HTMLElement): void {
   onRouteChange(show);
 
   const boot = (): void => {
-    shell.setTitle("HappyWheel+");
+    shell.setTitle(null);
     sheet.setContent(loadingBlock("도시 정보를 불러오는 중"));
     loadIndex().then(
       (loaded) => {

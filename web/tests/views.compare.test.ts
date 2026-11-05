@@ -44,6 +44,8 @@ function ctx(): AppContext & { titles: string[] } {
     sheet: mountSheet(document.getElementById("panel")!),
     shell: {
       header: document.createElement("header"),
+      pageHead: document.createElement("div"),
+      setLayout: () => {},
       panel: document.getElementById("panel")!,
       mapContainer: document.getElementById("map")!,
       setTitle: (t: string) => titles.push(t),

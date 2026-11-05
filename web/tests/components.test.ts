@@ -1,22 +1,32 @@
 import { describe, expect, it, vi } from "vitest";
-import { segmented, stat, stats } from "../src/ui/components";
+import { kvList, scoreMeter, segmented } from "../src/ui/components";
 
-describe("stat", () => {
-  it("puts the label above the value inside a description list", () => {
-    const list = stats([stat("거리", "1.8", { unit: "km", hint: "좋음" }), stat("코스", "15")]);
+describe("kvList", () => {
+  it("renders label/value rows in a description list and marks the strong row", () => {
+    const list = kvList([
+      { label: "거리", value: "1.8km" },
+      { label: "추가 거리", value: "+365m", strong: true },
+    ]);
     expect(list.tagName).toBe("DL");
-    const first = list.querySelector(".stat")!;
-    const [dt, dd] = [first.children[0], first.children[1]];
-    expect(dt.tagName).toBe("DT");
-    expect(dt.textContent).toBe("거리");
-    expect(dd.tagName).toBe("DD");
-    expect(dd.textContent).toBe("1.8km");
-    expect(first.querySelector(".stat-hint")?.textContent).toBe("좋음");
-    expect(list.querySelectorAll(".stat").length).toBe(2);
+    const rows = [...list.querySelectorAll(".kv-row")];
+    expect(rows.map((r) => [r.querySelector("dt")!.textContent, r.querySelector("dd")!.textContent])).toEqual([
+      ["거리", "1.8km"],
+      ["추가 거리", "+365m"],
+    ]);
+    expect(list.querySelectorAll(".is-strong").length).toBe(1);
+  });
+});
+
+describe("scoreMeter", () => {
+  it("shows the number and the word with a 0-100 bar", () => {
+    const m = scoreMeter(86.4);
+    expect(m.textContent).toBe("86좋음");
+    expect(m.querySelector<HTMLElement>(".score-bar-fill")!.style.width).toBe("86.4%");
+    expect(m.querySelector(".score-bar")!.getAttribute("aria-hidden")).toBe("true");
   });
 
-  it("marks the large variant", () => {
-    expect(stat("점수", "87", { size: "lg" }).classList.contains("stat-lg")).toBe(true);
+  it("shows a dash when there is no score", () => {
+    expect(scoreMeter(null).textContent).toBe("–");
   });
 });
 

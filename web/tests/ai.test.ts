@@ -36,6 +36,13 @@ describe("ai client", () => {
     expect(r.ok && r.value.weights).toEqual({ slope: 2, surface: 0, kerb: 0.5, uncertainty: 1 });
   });
 
+  it("rounds weights to the 0.5 slider steps", async () => {
+    const w = { slope: 0.8, surface: 1.3, kerb: 0.2, uncertainty: 1.74 };
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(reply(200, { ...okBody, weights: w })));
+    const r = await ask();
+    expect(r.ok && r.value.weights).toEqual({ slope: 1, surface: 1.5, kerb: 0, uncertainty: 1.5 });
+  });
+
   it("rejects NaN or missing weights as bad_response", async () => {
     const w = { slope: "a", surface: 1, kerb: 1, uncertainty: 1 };
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(reply(200, { ...okBody, weights: w })));

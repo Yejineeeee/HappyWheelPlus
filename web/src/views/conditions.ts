@@ -32,11 +32,19 @@ const POI_SUBJECT: Record<PoiKind, string> = {
   fountain: "음수대가",
 };
 const SLIDERS: { key: keyof Weights; label: string }[] = [
-  { key: "slope", label: "경사" },
-  { key: "surface", label: "노면" },
-  { key: "kerb", label: "연석" },
-  { key: "uncertainty", label: "불확실성" },
+  { key: "slope", label: "경사 피하기" },
+  { key: "surface", label: "울퉁불퉁한 길 피하기" },
+  { key: "kerb", label: "높은 연석 피하기" },
+  { key: "uncertainty", label: "정보가 없는 길 피하기" },
 ];
+/** 0~2를 0.5 단위 다섯 단계로 보여 준다. */
+export const LEVEL_STEP = 0.5;
+export const LEVEL_LABELS = ["신경 안 씀", "조금", "보통", "많이", "아주 많이"];
+
+/** 가중치를 가장 가까운 단계의 번호(0~4)로. 기본값이 단계 사이에 있어도 보이는 단계는 이것으로 정한다. */
+export function levelIndex(w: number): number {
+  return Math.max(0, Math.min(LEVEL_LABELS.length - 1, Math.round(w / LEVEL_STEP)));
+}
 const DEBOUNCE_MS = 250;
 const AI_ERROR_TEXT: Record<AiError, string> = {
   disabled: "지금은 AI를 쓸 수 없어요. 슬라이더로 직접 조절해 보세요.",
@@ -67,17 +75,17 @@ interface DiffRow {
 
 const DIFF_ROWS: DiffRow[] = [
   { label: "거리", get: (m) => m.length_m, fmt: fmtM, delta: fmtDelta },
-  { label: "통과 불가 계단", get: (m) => m.steps_count, fmt: (v) => `${v}개`, delta: (d) => signed(d, "개") },
+  { label: "지나갈 수 없는 계단", get: (m) => m.steps_count, fmt: (v) => `${v}개`, delta: (d) => signed(d, "개") },
   { label: "최대 경사", get: (m) => m.max_grade_pct, fmt: (v) => fmtPct(v), delta: (d) => signed(d, "%p", 1) },
-  { label: "6% 이상 경사 구간", get: (m) => m.steep_m, fmt: fmtM, delta: fmtDelta },
-  { label: "돌길 구간", get: (m) => m.cobble_m, fmt: fmtM, delta: fmtDelta },
+  { label: "가파른 길(6% 이상)", get: (m) => m.steep_m, fmt: fmtM, delta: fmtDelta },
+  { label: "돌길", get: (m) => m.cobble_m, fmt: fmtM, delta: fmtDelta },
   { label: "평균 점수", get: (m) => m.mean_score, fmt: (v) => `${Math.round(v)}점`, delta: (d) => signed(d, "점") },
   { label: "300m 안 화장실", get: (m) => m.toilets_300m, fmt: (v) => `${v}곳`, delta: (d) => signed(d, "곳") },
 ];
 
 export function diffTable(base: RouteMetrics, mine: RouteMetrics): HTMLElement {
   const table = el("table", { class: "metric-table diff-table" });
-  table.append(el("caption", {}, "기본 접근성 경로와 내 조건 경로 비교"));
+  table.append(el("caption", {}, "기본 휠체어 경로와 내 조건 경로 비교"));
   table.append(
     el(
       "thead",
@@ -162,28 +170,32 @@ export function conditionsPanel(opts: PanelOpts): ConditionsPanel {
   const inputs = new Map<keyof Weights, HTMLInputElement>();
   const outputs = new Map<keyof Weights, HTMLElement>();
   const sliderBox = el("div", { class: "cond-sliders" });
+  // 슬라이더는 가장 가까운 단계를 보여 주지만, 사용자가 움직이기 전까지 내부 값은 기본 가중치 그대로 둔다
+  // (그래야 기본 조건에서 미리 계산한 경로와 일치한다).
   const syncSlider = (key: keyof Weights): void => {
     const input = inputs.get(key)!;
-    const label = SLIDERS.find((s) => s.key === key)!.label;
-    const v = cond.weights[key];
-    input.value = String(v);
-    input.setAttribute("aria-valuetext", `${label} 중요도 ${v.toFixed(1)}`);
-    outputs.get(key)!.textContent = v.toFixed(1);
+    const i = levelIndex(cond.weights[key]);
+    input.value = String(i * LEVEL_STEP);
+    input.setAttribute("aria-valuetext", LEVEL_LABELS[i]);
+    outputs.get(key)!.textContent = LEVEL_LABELS[i];
   };
   for (const s of SLIDERS) {
     const id = `cond-${s.key}-${course.index}`;
-    const input = el("input", { type: "range", id, min: "0", max: "2", step: "0.1" });
+    const input = el("input", { type: "range", id, min: "0", max: "2", step: String(LEVEL_STEP) });
     const out = el("output", { class: "cond-value", for: id });
     inputs.set(s.key, input);
     outputs.set(s.key, out);
     input.addEventListener("input", () => {
-      cond.weights[s.key] = Math.round(Number(input.value) * 10) / 10;
+      cond.weights[s.key] = levelIndex(Number(input.value)) * LEVEL_STEP;
       syncSlider(s.key);
       schedule();
     });
-    sliderBox.append(
-      el("div", { class: "cond-row" }, el("label", { for: id }, `${s.label} 중요도`), out, input),
+    const ticks = el(
+      "div",
+      { class: "cond-ticks", "aria-hidden": "true" },
+      ...LEVEL_LABELS.map((t) => el("span", {}, t)),
     );
+    sliderBox.append(el("div", { class: "cond-row" }, el("label", { for: id }, s.label), out, input, ticks));
     syncSlider(s.key);
   }
 
@@ -269,7 +281,7 @@ export function conditionsPanel(opts: PanelOpts): ConditionsPanel {
 
   root.append(
     ...(aiBox ? [aiBox] : []),
-    el("p", { class: "cond-hint" }, "값이 클수록 그 요소를 더 피하는 길을 찾아요. 0은 무시, 2는 아주 중요해요."),
+    el("p", { class: "cond-hint" }, "많이 피할수록 그런 길을 돌아가는 경로를 찾아요."),
     sliderBox,
     fieldset,
     el("div", { class: "cond-actions" }, reset),
@@ -312,7 +324,7 @@ export function conditionsPanel(opts: PanelOpts): ConditionsPanel {
     if (baseAcc) {
       result.append(
         diffTable(baseAcc.metrics, res.metrics),
-        el("p", { class: "cond-note" }, "평균 점수는 각 경로를 그 조건의 가중치로 계산한 값이에요."),
+        el("p", { class: "cond-note" }, "점수는 내가 고른 조건 기준이에요."),
       );
     }
   }
