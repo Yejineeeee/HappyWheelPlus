@@ -137,3 +137,5 @@
   white-space: nowrap;
   border: 0;
 }
+.city-dot { position: relative; }
+.city-dot::after { content: ""; position: absolute; inset: -14px; border-radius: 50%; }

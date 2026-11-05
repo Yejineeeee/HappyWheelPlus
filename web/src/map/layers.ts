@@ -78,13 +78,22 @@ const LAYER_ORDER = [
   "route-acc",
 ];
 
-/** LAYER_ORDER 순서(아래→위)가 유지되도록, 이미 있는 더 위 레이어 바로 앞에 끼워 넣는다. */
+/**
+ * 구간 히트맵은 기본 지도의 글자(지명·도로명) 아래, 앱의 편의시설·경로 레이어 아래에 둔다.
+ * 편의시설·경로는 LAYER_ORDER 순서(아래→위)가 유지되도록 이미 있는 더 위 레이어 바로 앞에 끼워 넣는다.
+ */
 function addOrdered(map: maplibregl.Map, layer: maplibregl.LayerSpecification): void {
   const i = LAYER_ORDER.indexOf(layer.id);
-  let before = LAYER_ORDER.slice(i + 1).find((id) => map.getLayer(id));
-  // 구간 히트맵은 기본 지도의 글자(지명·도로명) 아래에 둔다.
-  if (!before && layer.id.startsWith("segments-")) {
-    before = map.getStyle().layers.find((l) => l.type === "symbol" && !LAYER_ORDER.includes(l.id))?.id;
+  const upperApp = LAYER_ORDER.slice(i + 1).find((id) => map.getLayer(id));
+  let before = upperApp;
+  if (layer.id.startsWith("segments-")) {
+    // 기본 지도 레이어 중 마지막 도형(도로·건물 등) 위, 그 뒤 첫 글자 레이어 앞. 글자 레이어가 도로보다 앞에 섞여 있어도 도로 위에 놓인다.
+    const base = map.getStyle().layers.filter((l) => !LAYER_ORDER.includes(l.id));
+    let lastShape = -1;
+    base.forEach((l, i) => {
+      if (l.type !== "symbol" && l.type !== "background") lastShape = i;
+    });
+    before = base.slice(lastShape + 1).find((l) => l.type === "symbol")?.id ?? upperApp;
   }
   map.addLayer(layer, before);
 }
@@ -97,7 +106,10 @@ function removeLayers(map: maplibregl.Map, layers: string[], sources: string[]):
 // ---------- 도시 마커 ----------
 
 function stopDeclutter(m: AppMap, s: State): void {
-  if (s.cityDeclutter) m.map.off("moveend", s.cityDeclutter);
+  if (s.cityDeclutter) {
+    m.map.off("moveend", s.cityDeclutter);
+    m.map.off("resize", s.cityDeclutter);
+  }
   s.cityDeclutter = null;
 }
 
@@ -122,6 +134,10 @@ export function showCityMarkers(m: AppMap, cities: CityEntry[], onSelect: (id: s
     label.className = "city-label";
     label.setAttribute("aria-hidden", "true");
     label.textContent = `${c.name_ko} ${score}`;
+    // 숨겨진 라벨이 클릭을 가로채지 않도록 버튼 자체는 클릭을 받지 않고, 점과 보이는 라벨만 받는다.
+    btn.style.pointerEvents = "none";
+    dot.style.pointerEvents = "auto";
+    label.style.pointerEvents = "auto";
     btn.append(dot, label);
     labels.push(label);
     btn.addEventListener("click", () => onSelect(c.id));
@@ -135,12 +151,12 @@ export function showCityMarkers(m: AppMap, cities: CityEntry[], onSelect: (id: s
 
   // 점수가 높은 도시부터 라벨을 남기고, 먼저 남긴 라벨과 겹치는 라벨은 숨긴다. 점은 항상 보인다.
   const declutter = () => {
-    for (const l of labels) l.style.visibility = "";
+    for (const l of labels) l.style.display = "";
     const kept: DOMRect[] = [];
     for (const l of labels) {
       const r = l.getBoundingClientRect();
       if (kept.some((k) => r.left < k.right && r.right > k.left && r.top < k.bottom && r.bottom > k.top)) {
-        l.style.visibility = "hidden";
+        l.style.display = "none";
       } else {
         kept.push(r);
       }
@@ -148,6 +164,7 @@ export function showCityMarkers(m: AppMap, cities: CityEntry[], onSelect: (id: s
   };
   s.cityDeclutter = declutter;
   m.map.on("moveend", declutter);
+  m.map.on("resize", declutter);
   requestAnimationFrame(declutter);
 }
 
