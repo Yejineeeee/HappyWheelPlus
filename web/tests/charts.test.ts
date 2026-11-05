@@ -79,7 +79,7 @@ describe("chart data", () => {
   it("interpretation sentences are computed from data", () => {
     expect(scoreSentence(INDEX)).toBe("평균 점수가 가장 높은 도시는 밀라노(93점), 가장 낮은 도시는 인터라켄(52점)이에요");
     expect(surfaceSentence(INDEX)).toBe("노면 정보가 없는 길 비율이 가장 큰 도시는 인터라켄(47%), 가장 작은 도시는 밀라노(20%)예요");
-    expect(poiSentence(INDEX)).toBe("㎢당 화장실은 파리(15.6개)가 가장 많고 인터라켄(0.9개)가 가장 적어요");
+    expect(poiSentence(INDEX)).toBe("㎢당 화장실은 파리(15.6개)가 가장 많고 인터라켄(0.9개)이 가장 적어요");
     expect(coverageSentence(INDEX)).toBe("노면 정보 비율이 가장 낮은 도시는 인터라켄(53%), 경사 정보 비율이 가장 낮은 도시는 파리(95%)예요");
   });
 
@@ -92,12 +92,16 @@ describe("chart data", () => {
 });
 
 describe("josa", () => {
-  it("picks the particle by the last reading", () => {
+  it("picks the particle by the last word before any parenthesis", () => {
     expect(josa("화장실", "이", "가")).toBe("화장실이");
     expect(josa("엘리베이터", "이", "가")).toBe("엘리베이터가");
-    expect(josa("파리(0.9개)", "이", "가")).toBe("파리(0.9개)가");
+    // 괄호 앞 낱말(도시 이름)의 받침으로 정한다.
+    expect(josa("인터라켄(0.9개)", "이", "가")).toBe("인터라켄(0.9개)이");
+    expect(josa("파리(15.6개)", "이", "가")).toBe("파리(15.6개)가");
+    expect(josa("밀라노(93%)", "이에요", "예요")).toBe("밀라노(93%)예요");
+    expect(josa("베네치아(93%)", "이에요", "예요")).toBe("베네치아(93%)예요");
     expect(josa("인터라켄(52점)", "이에요", "예요")).toBe("인터라켄(52점)이에요");
-    expect(josa("밀라노(93%)", "이", "가")).toBe("밀라노(93%)가");
+    expect(josa("93%", "이", "가")).toBe("93%가");
     expect(josa("3", "은", "는")).toBe("3은");
     expect(josa("5", "은", "는")).toBe("5는");
   });

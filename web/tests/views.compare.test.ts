@@ -5,7 +5,7 @@ vi.mock("../src/map/layers", () => ({ showCityMarkers: vi.fn() }));
 
 import { showCityMarkers } from "../src/map/layers";
 import { mountSheet } from "../src/ui/sheet";
-import { profileChart } from "../src/ui/profileChart";
+import { disposeProfileChart, profileChart } from "../src/ui/profileChart";
 import { aboutView } from "../src/views/about";
 import { compareView } from "../src/views/compare";
 import type { AppContext } from "../src/views/types";
@@ -99,6 +99,11 @@ describe("compare and about views", () => {
     document.documentElement.setAttribute("data-theme", "dark");
     await new Promise((r) => setTimeout(r, 20));
     expect(holder.querySelector("svg")).not.toBe(before);
+    const mid = holder.querySelector("svg");
+    disposeProfileChart(holder.firstElementChild);
+    document.documentElement.setAttribute("data-theme", "light");
+    await new Promise((r) => setTimeout(r, 20));
+    expect(holder.querySelector("svg")).toBe(mid);
   });
 
   it("about shows the model sections and repository links", () => {

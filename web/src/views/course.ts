@@ -5,7 +5,7 @@ import type { Course, PoiKind, RouteData } from "../data/types";
 import { hasSegments, showBlockedAt, showRoutes, showSegments, showStops } from "../map/layers";
 import { el, errorBlock, loadingBlock } from "../ui/components";
 import { fmtM, fmtPct } from "../ui/format";
-import { profileChart } from "../ui/profileChart";
+import { disposeProfileChart, profileChart } from "../ui/profileChart";
 import { conditionsPanel, type ConditionsPanel } from "./conditions";
 import { fitTo } from "./mapFit";
 import { notFoundView } from "./notFound";
@@ -175,6 +175,7 @@ function countNearby(
 
 export function courseView(cityId: string, courseIndex: number): View {
   let inner: View | null = null;
+  let profileHolderRef: HTMLElement | null = null;
   let touchedMap = false;
   let mapRef: AppContext["map"] | null = null;
   let panel: ConditionsPanel | null = null;
@@ -248,12 +249,14 @@ export function courseView(cityId: string, courseIndex: number): View {
         root.append(el("h3", {}, "경사 단면"));
         const profileHolder = el("div", { class: "profile-holder" });
         const drawProfile = (rows: RouteData["profile"]): void => {
+          disposeProfileChart(profileHolder.firstElementChild);
           profileHolder.replaceChildren(
             profileChart(rows, acc ? { compare: course.routes.shortest.profile } : {}),
           );
         };
         drawProfile((acc ?? course.routes.shortest).profile);
         root.append(profileHolder);
+        profileHolderRef = profileHolder;
 
         root.append(el("h3", {}, "정류장"), stopsList(course));
 
@@ -305,6 +308,8 @@ export function courseView(cityId: string, courseIndex: number): View {
       await loadAll();
     },
     unmount() {
+      disposeProfileChart(profileHolderRef?.firstElementChild);
+      profileHolderRef = null;
       inner?.unmount();
       inner = null;
       panel?.destroy();

@@ -63,9 +63,10 @@ function extremes<T>(items: T[], value: (t: T) => number): { max: T; min: T } {
 
 const DIGIT_BATCHIM = [true, true, false, true, false, false, true, true, true, false];
 
-/** 마지막 읽는 글자에 받침이 있는지. 닫는 괄호는 건너뛰고 %는 "퍼센트"(받침 없음), 숫자는 한글 읽기 기준. */
+/** 마지막 읽는 글자에 받침이 있는지. 끝의 괄호 설명은 건너뛰고(괄호 없는 낱말 끝의 %는 "퍼센트"(받침 없음)), 숫자는 한글 읽기 기준. */
 function hasBatchim(word: string): boolean {
-  const s = word.replace(/[)\]}>"'.\s]+$/, "");
+  // 조사는 괄호 앞 낱말에 붙는다: "인터라켄(0.9개)이" (켄 + 이).
+  const s = word.replace(/\([^)]*\)\s*$/, "").replace(/[\]}>"'.\s]+$/, "");
   const ch = s.slice(-1);
   if (ch === "%") return false;
   if (/[0-9]/.test(ch)) return DIGIT_BATCHIM[Number(ch)];
@@ -108,5 +109,5 @@ export function coverageSentence(index: CityIndex): string {
   if (index.cities.length === 0) return "";
   const s = extremes(index.cities, (c) => c.metrics.surface_coverage).min;
   const g = extremes(index.cities, (c) => c.metrics.slope_coverage).min;
-  return `노면 정보 비율이 가장 낮은 도시는 ${s.name_ko}(${pct(s.metrics.surface_coverage)}), 경사 정보 비율이 가장 낮은 도시는 ${g.name_ko}(${pct(g.metrics.slope_coverage)})예요`;
+  return `노면 정보 비율이 가장 낮은 도시는 ${s.name_ko}(${pct(s.metrics.surface_coverage)}), 경사 정보 비율이 가장 낮은 도시는 ${josa(`${g.name_ko}(${pct(g.metrics.slope_coverage)})`, "이에요", "예요")}`;
 }

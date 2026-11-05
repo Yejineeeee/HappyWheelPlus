@@ -39,6 +39,15 @@ function hasElevation(rows: ProfileRow[]): boolean {
   return rows.some((r) => r[1] !== null && Number.isFinite(r[1]));
 }
 
+const cleanups = new WeakMap<Element, () => void>();
+
+/** 차트가 붙여 둔 관찰자(테마·크기)를 해제한다. 화면이 차트를 버릴 때 부른다. */
+export function disposeProfileChart(node: Element | null | undefined): void {
+  if (!node) return;
+  cleanups.get(node)?.();
+  cleanups.delete(node);
+}
+
 export function profileChart(rows: ProfileRow[], opts: { compare?: ProfileRow[] } = {}): HTMLElement {
   const root = el("div", { class: "profile" });
   if (!hasElevation(rows)) {
@@ -134,25 +143,24 @@ export function profileChart(rows: ProfileRow[], opts: { compare?: ProfileRow[] 
   );
 
   draw();
+  const stops: (() => void)[] = [];
+  cleanups.set(root, () => stops.forEach((f) => f()));
   if (typeof MutationObserver !== "undefined") {
-    // 테마가 바뀌면 SVG에 박힌 색을 다시 읽는다. 화면에서 떨어지면 스스로 해제한다.
-    const themeObs = new MutationObserver(() => {
-      if (!root.isConnected) {
-        themeObs.disconnect();
-        return;
-      }
-      draw();
-    });
+    // 테마가 바뀌면 SVG에 박힌 색을 다시 읽는다. disposeProfileChart가 해제한다.
+    const themeObs = new MutationObserver(() => draw());
     themeObs.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+    stops.push(() => themeObs.disconnect());
   }
   if (typeof ResizeObserver !== "undefined") {
     let lastW = holder.clientWidth;
-    new ResizeObserver(() => {
+    const ro = new ResizeObserver(() => {
       if (holder.clientWidth && holder.clientWidth !== lastW) {
         lastW = holder.clientWidth;
         draw();
       }
-    }).observe(holder);
+    });
+    ro.observe(holder);
+    stops.push(() => ro.disconnect());
   }
   return root;
 }
