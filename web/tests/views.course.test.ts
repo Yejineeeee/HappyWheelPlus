@@ -12,12 +12,13 @@ vi.mock("../src/map/layers", () => ({
   showRoutes: vi.fn(),
   showStops: vi.fn(),
   showBlockedAt: vi.fn(),
+  setRouteFocus: vi.fn(),
   showSegments: vi.fn(),
   hasSegments: vi.fn(),
 }));
 
 import { loadCourses, loadGraph, loadPois, loadSegments } from "../src/data/load";
-import { hasSegments, showBlockedAt, showRoutes, showSegments, showStops } from "../src/map/layers";
+import { hasSegments, setRouteFocus, showBlockedAt, showRoutes, showSegments, showStops } from "../src/map/layers";
 import { profileChart } from "../src/ui/profileChart";
 import { mountSheet } from "../src/ui/sheet";
 import { courseView } from "../src/views/course";
@@ -314,5 +315,62 @@ describe("profileChart axis", () => {
   it("puts the distance unit in tick labels instead of an axis label", () => {
     const node = profileChart([[0, 1, 0], [500, 2, 3], [2500, 4, 2]]);
     expect(node.textContent).not.toContain("거리(m)");
+  });
+});
+
+describe("course view route tabs and summary", () => {
+  it("shows the route summary with a nav link on the sheet and on the map", async () => {
+    vi.mocked(loadCourses).mockResolvedValue([course()]);
+    const ctx = makeCtx();
+    const view = courseView("paris", 0);
+    await view.mount(ctx);
+    await tick();
+    const sheetLabels = [...ctx.sheet.el.querySelectorAll(".route-summary dt")].map((d) => d.textContent);
+    expect(sheetLabels).toEqual(["거리", "추가 거리", "피한 계단", "최대 경사", "평균 점수"]);
+    expect(ctx.sheet.el.querySelector(".route-summary")!.textContent).toContain("+243m");
+    const bar = ctx.shell.mapContainer.querySelector(".route-bar")!;
+    expect(bar.querySelector('a[href="#/paris/0/nav"]')).not.toBeNull();
+    view.unmount();
+    expect(ctx.shell.mapContainer.querySelector(".route-bar")).toBeNull();
+    expect(setRouteFocus).toHaveBeenLastCalledWith(ctx.map, "accessible");
+  });
+
+  it("segmented tabs switch the emphasised route and drive the conditions panel", async () => {
+    vi.mocked(loadCourses).mockResolvedValue([course()]);
+    vi.mocked(loadGraph).mockReturnValue(new Promise(() => {}));
+    const ctx = makeCtx();
+    await courseView("paris", 0).mount(ctx);
+    await tick();
+    const group = ctx.sheet.el.querySelector<HTMLElement>('[role="radiogroup"]')!;
+    const radios = [...group.querySelectorAll<HTMLButtonElement>('[role="radio"]')];
+    expect(radios.map((r) => r.textContent)).toEqual(["최단", "휠체어", "내 조건"]);
+    expect(radios[1].getAttribute("aria-checked")).toBe("true");
+    const panel = ctx.sheet.el.querySelector<HTMLElement>(".conditions")!;
+    const btn = ctx.sheet.el.querySelector<HTMLButtonElement>(".course-actions button")!;
+
+    radios[0].click();
+    expect(setRouteFocus).toHaveBeenLastCalledWith(ctx.map, "shortest");
+    expect(panel.hidden).toBe(true);
+
+    radios[2].click();
+    expect(setRouteFocus).toHaveBeenLastCalledWith(ctx.map, "accessible");
+    expect(panel.hidden).toBe(false);
+    expect(btn.getAttribute("aria-expanded")).toBe("true");
+    expect(loadGraph).toHaveBeenCalledTimes(1);
+
+    radios[1].click();
+    expect(panel.hidden).toBe(true);
+    expect(btn.getAttribute("aria-expanded")).toBe("false");
+
+    btn.click();
+    expect(radios[2].getAttribute("aria-checked")).toBe("true");
+  });
+
+  it("unreachable course has no route tabs", async () => {
+    vi.mocked(loadCourses).mockResolvedValue(unreachable as unknown as Course[]);
+    const ctx = makeCtx();
+    await courseView("paris", (unreachable as unknown as Course[])[0].index).mount(ctx);
+    await tick();
+    expect(ctx.sheet.el.querySelector('[role="radiogroup"]')).toBeNull();
   });
 });

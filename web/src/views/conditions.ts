@@ -113,6 +113,10 @@ export function diffTable(base: RouteMetrics, mine: RouteMetrics): HTMLElement {
 
 export interface ConditionsPanel {
   el: HTMLElement;
+  /** 패널을 열고 내 조건 경로를 (다시) 계산해 지도에 보인다. */
+  activate(): void;
+  /** 패널을 닫고 지도를 기본 접근성 경로로 되돌린다. 슬라이더 값은 그대로 둔다. */
+  deactivate(): void;
   /** 지도·저장소를 기본 경로 상태로 되돌리고 타이머를 정리한다. */
   destroy(): void;
 }
@@ -125,6 +129,8 @@ export interface PanelOpts {
   button: HTMLButtonElement;
   /** 표시 중인 경로의 경사 단면이 바뀌면 불린다. */
   onProfile(rows: ProfileRow[]): void;
+  /** 버튼으로 패널을 여닫으면 불린다. */
+  onOpenChange?(open: boolean): void;
 }
 
 export function conditionsPanel(opts: PanelOpts): ConditionsPanel {
@@ -372,19 +378,35 @@ export function conditionsPanel(opts: PanelOpts): ConditionsPanel {
     );
   }
 
+  function setOpen(open: boolean): void {
+    if (open) root.removeAttribute("hidden");
+    else root.setAttribute("hidden", "");
+    button.setAttribute("aria-expanded", String(open));
+  }
+
   button.addEventListener("click", () => {
     const open = root.hasAttribute("hidden");
-    if (open) {
-      root.removeAttribute("hidden");
-      load();
-    } else {
-      root.setAttribute("hidden", "");
-    }
-    button.setAttribute("aria-expanded", String(open));
+    setOpen(open);
+    if (open) load();
+    opts.onOpenChange?.(open);
   });
 
   return {
     el: root,
+    activate() {
+      if (dead) return;
+      setOpen(true);
+      if (compute) recompute();
+      else load();
+    },
+    deactivate() {
+      if (dead) return;
+      setOpen(false);
+      if (timer) clearTimeout(timer);
+      timer = null;
+      if (appliedCustom) showDefault();
+      setStatus("");
+    },
     destroy() {
       dead = true;
       aiCtl?.abort();

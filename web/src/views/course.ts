@@ -2,9 +2,10 @@ import { pointLineDistM } from "../core/geo";
 import { setCurrentRoute } from "../core/conditions";
 import { loadCourses, loadPois, loadSegments } from "../data/load";
 import type { Course, PoiKind, RouteData } from "../data/types";
-import { hasSegments, showBlockedAt, showRoutes, showSegments, showStops } from "../map/layers";
-import { el, errorBlock, loadingBlock } from "../ui/components";
-import { fmtM, fmtPct } from "../ui/format";
+import { hasSegments, setRouteFocus, showBlockedAt, showRoutes, showSegments, showStops } from "../map/layers";
+import { el, errorBlock, loadingBlock, segmented, stat, stats, type Segmented } from "../ui/components";
+import { fmtDelta, fmtM, fmtPct } from "../ui/format";
+import { icon } from "../ui/icons";
 import { disposeProfileChart, profileChart } from "../ui/profileChart";
 import { conditionsPanel, type ConditionsPanel } from "./conditions";
 import { fitTo } from "./mapFit";
@@ -21,6 +22,7 @@ const POI_LABEL: Record<PoiKind, string> = {
 const NEAR_M = 300;
 
 type LngLat = [number, number];
+type RouteView = "shortest" | "accessible" | "custom";
 
 export function summarySentence(c: Course): string {
   if (!c.reachable || !c.routes.accessible) return "휠체어로 이어지는 길을 찾지 못했어요";
@@ -110,6 +112,39 @@ function comparisonTable(c: Course): HTMLElement {
   return table;
 }
 
+/** 경로 요약: 거리 · 추가 거리 · 피한 계단 · 최대 경사 · 평균 점수 + 길안내 버튼. */
+function routeSummary(c: Course, cityId: string, variant: "sheet" | "map"): HTMLElement {
+  const acc = c.reachable ? c.routes.accessible : null;
+  const r = acc ?? c.routes.shortest;
+  const items = [stat("거리", fmtM(r.metrics.length_m))];
+  if (acc) {
+    const extra = c.comparison?.extra_m ?? acc.metrics.length_m - c.routes.shortest.metrics.length_m;
+    items.push(stat("추가 거리", fmtDelta(extra)));
+    items.push(stat("피한 계단", String(c.comparison?.steps_avoided ?? 0), { unit: "개" }));
+  }
+  items.push(stat("최대 경사", fmtPct(r.metrics.max_grade_pct)));
+  items.push(
+    stat("평균 점수", r.metrics.mean_score === null ? "–" : String(Math.round(r.metrics.mean_score)), {
+      unit: r.metrics.mean_score === null ? "" : "점",
+    }),
+  );
+  const nav = el("a", { href: `#/${cityId}/${c.index}/nav`, class: "btn route-nav" }, icon("navigation", 18), "길안내");
+  if (variant === "map") {
+    return el(
+      "section",
+      { class: "route-bar", "aria-label": "경로 요약" },
+      stats(items, "stats-inline"),
+      nav,
+    );
+  }
+  return el(
+    "section",
+    { class: "route-summary", "aria-label": "경로 요약" },
+    el("p", { class: "course-summary" }, summarySentence(c)),
+    el("div", { class: "route-summary-row" }, stats(items, "stats-inline"), nav),
+  );
+}
+
 function stopsList(c: Course): HTMLElement {
   const ol = el("ol", { class: "stop-list" });
   c.stops.forEach((s, i) => {
@@ -179,6 +214,7 @@ export function courseView(cityId: string, courseIndex: number): View {
   let touchedMap = false;
   let mapRef: AppContext["map"] | null = null;
   let panel: ConditionsPanel | null = null;
+  let bar: HTMLElement | null = null;
 
   return {
     async mount(ctx: AppContext) {
@@ -243,10 +279,56 @@ export function courseView(cityId: string, courseIndex: number): View {
             ),
           );
         }
-        root.append(el("p", { class: "course-summary" }, summarySentence(course)));
+        root.append(routeSummary(course, cityId, "sheet"));
+        bar?.remove();
+        bar = routeSummary(course, cityId, "map");
+        ctx.shell.mapContainer.append(bar);
+        setRouteFocus(ctx.map, "accessible");
+
+        const change = el("button", { type: "button", class: "btn btn-quiet" }, "내 조건으로 경로 바꾸기");
+        let tabs: Segmented<RouteView> | null = null;
+        if (acc) {
+          tabs = segmented<RouteView>(
+            [
+              { value: "shortest", label: "최단" },
+              { value: "accessible", label: "휠체어" },
+              { value: "custom", label: "내 조건" },
+            ],
+            "accessible",
+            (v) => {
+              setRouteFocus(ctx.map, v === "shortest" ? "shortest" : "accessible");
+              if (v === "accessible") panel?.deactivate();
+              else if (v === "custom") panel?.activate();
+            },
+            "지도에 강조할 경로",
+          );
+          root.append(tabs.el);
+        }
+        root.append(el("div", { class: "course-actions" }, change));
+        panel?.destroy();
+        panel = null;
+        if (acc) {
+          panel = conditionsPanel({
+            ctx,
+            city,
+            course,
+            button: change,
+            onProfile: (rows) => drawProfile(rows),
+            onOpenChange: (open) => {
+              if (!open || !tabs) return;
+              tabs.set("custom");
+              setRouteFocus(ctx.map, "accessible");
+            },
+          });
+          root.append(panel.el);
+        } else {
+          change.setAttribute("disabled", "");
+          change.setAttribute("aria-disabled", "true");
+        }
+
         root.append(comparisonTable(course));
 
-        root.append(el("h3", {}, "경사 단면"));
+        root.append(el("h3", { class: "section-title" }, "경사 단면"));
         const profileHolder = el("div", { class: "profile-holder" });
         const drawProfile = (rows: RouteData["profile"]): void => {
           disposeProfileChart(profileHolder.firstElementChild);
@@ -258,26 +340,14 @@ export function courseView(cityId: string, courseIndex: number): View {
         root.append(profileHolder);
         profileHolderRef = profileHolder;
 
-        root.append(el("h3", {}, "정류장"), stopsList(course));
+        root.append(el("h3", { class: "section-title" }, "정류장"), stopsList(course));
 
         const poiBox = el("div", { class: "poi-near", "aria-live": "polite" }, "편의시설을 확인하는 중");
-        root.append(el("h3", {}, `경로 ${NEAR_M}m 안 편의시설`), poiBox);
+        root.append(el("h3", { class: "section-title" }, `경로 ${NEAR_M}m 안 편의시설`), poiBox);
 
         const field = fieldCard(course);
         if (field) root.append(field);
 
-        const change = el("button", { type: "button", class: "btn btn-quiet" }, "내 조건으로 경로 바꾸기");
-        const nav = el("a", { href: `#/${cityId}/${course.index}/nav`, class: "btn" }, "길안내 시작");
-        root.append(el("div", { class: "course-actions" }, change, nav));
-        panel?.destroy();
-        panel = null;
-        if (acc) {
-          panel = conditionsPanel({ ctx, city, course, button: change, onProfile: drawProfile });
-          root.append(panel.el);
-        } else {
-          change.setAttribute("disabled", "");
-          change.setAttribute("aria-disabled", "true");
-        }
         ctx.sheet.setContent(root);
 
         const loadPoiCounts = (): void => {
@@ -314,7 +384,10 @@ export function courseView(cityId: string, courseIndex: number): View {
       inner = null;
       panel?.destroy();
       panel = null;
+      bar?.remove();
+      bar = null;
       if (touchedMap && mapRef) {
+        setRouteFocus(mapRef, "accessible");
         showRoutes(mapRef, null, null);
         showStops(mapRef, []);
         showBlockedAt(mapRef, null);

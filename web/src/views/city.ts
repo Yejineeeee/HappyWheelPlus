@@ -3,7 +3,7 @@ import { loadCourses, loadPois, loadSegments } from "../data/load";
 import type { CityEntry, Course, PoiKind, PoiProps, SegmentProps } from "../data/types";
 import { showPois, showSegments } from "../map/layers";
 import { SCORE_STOPS } from "../map/style";
-import { badge, el, errorBlock, loadingBlock } from "../ui/components";
+import { badge, el, errorBlock, loadingBlock, stat, stats } from "../ui/components";
 import { fmtM, fmtPct, scoreLabel } from "../ui/format";
 import { fitTo } from "./mapFit";
 import { notFoundView } from "./notFound";
@@ -33,8 +33,16 @@ function courseCard(c: CityEntry, course: Course, ctx: AppContext): HTMLElement 
   const score = acc ? acc.metrics.mean_score : null;
   const scoreText = !acc ? "경로 없음" : score === null ? "점수 없음" : `${Math.round(score)}점`;
   const scoreEl = el("span", { class: "course-score" });
-  if (acc && score !== null) scoreEl.append(el("span", { class: "visually-hidden" }, "접근성 점수 "));
-  scoreEl.append(scoreText);
+  if (acc && score !== null) {
+    scoreEl.append(
+      el("span", { class: "visually-hidden" }, "접근성 점수 "),
+      el("span", { class: "score-num" }, String(Math.round(score))),
+      el("span", { class: "score-unit" }, "점"),
+    );
+  } else {
+    scoreEl.classList.add("is-empty");
+    scoreEl.append(scoreText);
+  }
 
   const head = el(
     "div",
@@ -45,9 +53,9 @@ function courseCard(c: CityEntry, course: Course, ctx: AppContext): HTMLElement 
   const facts = [fmtM(route.metrics.length_m)];
   if (route.metrics.max_grade_pct !== null) facts.push(`최대 경사 ${route.metrics.max_grade_pct.toFixed(1)}%`);
   const steps = course.comparison?.steps_avoided ?? 0;
-  if (steps > 0) facts.push(`계단 ${steps}개 회피`);
 
   const badges = el("div", { class: "course-badges" });
+  if (steps > 0) badges.append(badge(`계단 ${steps}개 회피`, "good"));
   if (course.field) {
     const b = badge(`현장 난이도 ${course.field.difficulty}/5 · `, "field");
     b.append(
@@ -60,7 +68,7 @@ function courseCard(c: CityEntry, course: Course, ctx: AppContext): HTMLElement 
 
   const btn = el(
     "button",
-    { type: "button", class: "course-card" },
+    { type: "button", class: "card course-card" },
     head,
     el("div", { class: "course-sub" }, `${course.time_label} · ${facts.join(" · ")}`),
   );
@@ -72,17 +80,22 @@ function courseCard(c: CityEntry, course: Course, ctx: AppContext): HTMLElement 
 function metricsSection(c: CityEntry): HTMLElement {
   const m = c.metrics;
   const mean = Math.round(m.mean_score);
-  const item = (label: string, value: string) =>
-    el("div", { class: "metric" }, el("dt", {}, label), el("dd", {}, value));
   return el(
-    "dl",
+    "div",
     { class: "city-metrics" },
-    item("평균 점수", `${mean}점 · ${scoreLabel(m.mean_score)}`),
-    item(
-      "데이터 신뢰도",
-      `노면 정보 ${fmtPct(m.surface_coverage * 100)} · 경사 정보 ${fmtPct(m.slope_coverage * 100)}`,
+    stats(
+      [
+        stat("평균 점수", String(mean), { unit: "점", hint: scoreLabel(m.mean_score), size: "lg" }),
+        stat("분석한 길", Math.round(m.network_km).toLocaleString("ko-KR"), { unit: "km" }),
+        stat("㎢당 화장실", m.poi_per_km2.toilet.toFixed(1), { unit: "곳" }),
+      ],
+      "stats-3",
     ),
-    item("㎢당 화장실 수", `${m.poi_per_km2.toilet.toFixed(1)}곳`),
+    el(
+      "p",
+      { class: "city-coverage" },
+      `데이터 신뢰도 · 노면 정보 ${fmtPct(m.surface_coverage * 100)} · 경사 정보 ${fmtPct(m.slope_coverage * 100)}`,
+    ),
   );
 }
 
@@ -99,7 +112,7 @@ function legend(): HTMLElement {
   return el(
     "section",
     { class: "legend", "aria-label": "점수 범례" },
-    el("h3", {}, "점수 색"),
+    el("h3", { class: "section-title" }, "점수 색"),
     el("p", { class: "legend-caption" }, "낮을수록 어렵고 높을수록 편해요"),
     bar,
     ticks,
@@ -161,11 +174,11 @@ export function cityView(cityId: string): View {
             metricsSection(city),
             legend(),
             segError,
-            el("h3", {}, "편의시설"),
+            el("h3", { class: "section-title" }, "편의시설"),
             chips,
             countList,
             poiError,
-            el("h3", {}, `코스 ${courses.length}개`),
+            el("h3", { class: "section-title" }, `코스 ${courses.length}개`),
             cards,
           ),
         );

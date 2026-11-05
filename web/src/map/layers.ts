@@ -14,6 +14,7 @@ import {
 
 type LngLat = [number, number];
 type Stop = { name: string; lon: number; lat: number };
+export type RouteFocus = "shortest" | "accessible";
 
 interface State {
   segments: GeoJSON.FeatureCollection | null;
@@ -21,6 +22,8 @@ interface State {
   visible: Record<PoiKind, boolean> | null;
   routes: { shortest: LngLat[] | null; accessible: LngLat[] | null; baseline: LngLat[] | null } | null;
   done: LngLat[] | null;
+  /** 지도에서 강조할 경로. 나머지는 흐리게 그린다. */
+  focus: RouteFocus;
   cityMarkers: maplibregl.Marker[];
   cityDeclutter: (() => void) | null;
   stopMarkers: maplibregl.Marker[];
@@ -45,6 +48,7 @@ function getState(m: AppMap): State {
       visible: null,
       routes: null,
       done: null,
+      focus: "accessible",
       cityMarkers: [],
       cityDeclutter: null,
       stopMarkers: [],
@@ -428,27 +432,34 @@ function applyRoutes(m: AppMap, s: State): void {
   setSource(map, "route-base", line(s.routes.baseline));
   setSource(map, "route-done", line(s.done));
   const round = { "line-cap": "round", "line-join": "round" } as const;
+  const shortFocus = s.focus === "shortest";
+  const dim = shortFocus ? 0.3 : 1;
   for (const id of ["route-short", "route-base", "route-casing", "route-done", "route-acc"]) if (map.getLayer(id)) map.removeLayer(id);
   addOrdered(map, {
     id: "route-short",
     type: "line",
     source: "route-short",
     layout: { "line-join": "round" },
-    paint: { "line-color": css("--route-short"), "line-width": 3, "line-dasharray": [2, 2] },
+    paint: {
+      "line-color": css("--route-short"),
+      "line-width": shortFocus ? 5 : 3,
+      "line-opacity": shortFocus ? 1 : 0.9,
+      "line-dasharray": [2, 2],
+    },
   });
   addOrdered(map, {
     id: "route-base",
     type: "line",
     source: "route-base",
     layout: round,
-    paint: { "line-color": css("--route-short"), "line-width": 2 },
+    paint: { "line-color": css("--route-short"), "line-width": 2, "line-opacity": 0.9 * dim },
   });
   addOrdered(map, {
     id: "route-casing",
     type: "line",
     source: "route-acc",
     layout: round,
-    paint: { "line-color": css("--surface"), "line-width": 7 },
+    paint: { "line-color": css("--surface"), "line-width": 8, "line-opacity": dim },
   });
   addOrdered(map, {
     id: "route-done",
@@ -462,7 +473,7 @@ function applyRoutes(m: AppMap, s: State): void {
     type: "line",
     source: "route-acc",
     layout: round,
-    paint: { "line-color": css("--accent"), "line-width": 5 },
+    paint: { "line-color": css("--route-acc"), "line-width": 5, "line-opacity": dim },
   });
 }
 
@@ -475,6 +486,14 @@ export function showRoutes(
 ): void {
   const s = getState(m);
   s.routes = { shortest, accessible, baseline: opts.baseline ?? null };
+  applyRoutes(m, s);
+}
+
+/** 코스 상세의 경로 보기 전환: 강조할 경로를 고르고 나머지는 흐리게 그린다. */
+export function setRouteFocus(m: AppMap, focus: RouteFocus): void {
+  const s = getState(m);
+  if (s.focus === focus) return;
+  s.focus = focus;
   applyRoutes(m, s);
 }
 
@@ -498,7 +517,7 @@ export function showStops(m: AppMap, stops: Stop[]): void {
     el.textContent = String(i + 1);
     el.style.cssText =
       "width:28px;height:28px;border-radius:50%;box-sizing:border-box;display:flex;align-items:center;" +
-      "justify-content:center;background:var(--surface);color:var(--ink);border:2px solid var(--accent);" +
+      "justify-content:center;background:var(--surface);color:var(--ink);border:2px solid var(--route-acc);" +
       "font:700 13px/1 var(--font);font-variant-numeric:tabular-nums;";
     return new maplibregl.Marker({ element: el }).setLngLat([st.lon, st.lat]).addTo(m.map);
   });
@@ -541,10 +560,10 @@ export function showUser(m: AppMap, pos: LngLat | null, heading?: number | null)
     arrow.dataset.role = "arrow";
     arrow.style.cssText =
       "position:absolute;left:50%;top:-8px;margin-left:-6px;border:6px solid transparent;" +
-      "border-bottom:9px solid var(--accent);border-top:0;display:none";
+      "border-bottom:9px solid var(--route-acc);border-top:0;display:none";
     const dot = document.createElement("span");
     dot.style.cssText =
-      "display:block;width:18px;height:18px;border-radius:50%;background:var(--accent);" +
+      "display:block;width:18px;height:18px;border-radius:50%;background:var(--route-acc);" +
       "border:3px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.3);box-sizing:border-box";
     el.append(arrow, dot);
     s.userMarker = new maplibregl.Marker({ element: el, rotationAlignment: "map" }).setLngLat(pos).addTo(m.map);
@@ -564,6 +583,7 @@ export function clearCityLayers(m: AppMap): void {
   s.pois = null;
   s.routes = null;
   s.done = null;
+  s.focus = "accessible";
   for (const mk of s.cityMarkers) mk.remove();
   for (const mk of s.stopMarkers) mk.remove();
   stopDeclutter(m, s);

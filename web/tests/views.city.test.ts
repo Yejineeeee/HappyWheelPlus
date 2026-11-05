@@ -17,7 +17,7 @@ import { loadCourses, loadPois, loadSegments } from "../src/data/load";
 import { showCityMarkers, showPois, showSegments } from "../src/map/layers";
 import { mountSheet } from "../src/ui/sheet";
 import { cityView } from "../src/views/city";
-import { homeView } from "../src/views/home";
+import { homeStats, homeView } from "../src/views/home";
 import type { AppContext } from "../src/views/types";
 
 function city(id: string, name: string, country: string, score: number, n: number): CityEntry {
@@ -254,5 +254,27 @@ describe("home view", () => {
     expect(ctx.titles[0]).toEqual(["HappyWheel+", undefined]);
     groups[1].querySelector<HTMLButtonElement>(".city-row")!.click();
     expect(ctx.navigate).toHaveBeenCalledWith({ name: "city", city: "london" });
+  });
+});
+
+describe("home summary", () => {
+  it("computes the headline numbers from cities.json only", async () => {
+    const a = city("paris", "파리", "프랑스", 80, 2);
+    const b = city("london", "런던", "영국", 90, 1);
+    a.metrics.network_km = 500.4;
+    b.metrics.network_km = 300.2;
+    const s = homeStats([a, b]);
+    expect(s).toMatchObject({ cities: 2, courses: 3, meanScore: 85 });
+    expect(s.networkKm).toBeCloseTo(800.6, 6);
+    expect(homeStats([]).meanScore).toBeNull();
+
+    const ctx = makeCtx();
+    await homeView().mount(ctx);
+    const labels = [...ctx.sheet.el.querySelectorAll(".stats-summary dt")].map((d) => d.textContent);
+    expect(labels).toEqual(["도시", "코스", "분석한 길", "평균 점수"]);
+    const thumb = ctx.sheet.el.querySelector<HTMLImageElement>(".city-row img")!;
+    expect(thumb.getAttribute("src")).toMatch(/data\/[a-z]+\/thumb\.webp\?v=v$/);
+    expect(thumb.getAttribute("alt")).toBe("");
+    expect(loadCourses).not.toHaveBeenCalled();
   });
 });

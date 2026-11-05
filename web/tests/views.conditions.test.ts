@@ -13,6 +13,7 @@ vi.mock("../src/map/layers", () => ({
   showRoutes: vi.fn(),
   showStops: vi.fn(),
   showBlockedAt: vi.fn(),
+  setRouteFocus: vi.fn(),
   showSegments: vi.fn(),
   hasSegments: vi.fn(() => true),
 }));
