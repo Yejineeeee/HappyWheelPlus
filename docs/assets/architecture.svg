@@ -22,7 +22,7 @@
 
   <rect width="2000" height="1910" fill="#fff"/>
 
-  <text class="title" x="1000" y="105">HappyWheel+ 시스템 구조</text>
+  <text class="title" x="1000" y="105">시스템 구조</text>
 
   <!-- ===== 데이터 출처 ===== -->
   <!-- OpenStreetMap: 접힌 지도 + 위치 표시 -->
@@ -33,7 +33,7 @@
     <circle class="ic" cx="60" cy="44" r="4.5"/>
   </g>
   <text class="name" x="220" y="320">OpenStreetMap</text>
-  <text class="detail" x="220" y="355">보행망 · 편의시설 태그</text>
+  <text class="detail" x="220" y="355">보행망, 편의시설 태그</text>
 
   <!-- Copernicus DEM: 산 + 등고선 -->
   <g transform="translate(460 165)">
@@ -62,13 +62,13 @@
   <path class="line" d="M520 380 L520 558" marker-end="url(#head)"/>
 
   <rect class="box" x="300" y="560" width="440" height="104" rx="12"/>
-  <text class="name" x="520" y="604">수집 · 지형 보정</text>
-  <text class="detail" x="520" y="640">OSMnx 보행망, 건물·수목 높이 깎기</text>
+  <text class="name" x="520" y="604">수집 / 지형 보정</text>
+  <text class="detail" x="520" y="640">OSMnx 보행망, 건물, 수목 높이 깎기</text>
   <path class="line" d="M520 664 L520 718" marker-end="url(#head)"/>
 
   <rect class="box" x="300" y="720" width="440" height="104" rx="12"/>
   <text class="name" x="520" y="764">구간 채점</text>
-  <text class="detail" x="520" y="800">경사 · 노면 · 연석 · 정보 없음 감점</text>
+  <text class="detail" x="520" y="800">경사, 노면, 연석, 정보 없음 감점</text>
   <path class="line" d="M520 824 L520 878" marker-end="url(#head)"/>
 
   <rect class="box" x="300" y="880" width="440" height="104" rx="12"/>
@@ -92,7 +92,7 @@
 
   <rect class="box" x="1260" y="880" width="440" height="104" rx="12"/>
   <text class="name" x="1480" y="924">길안내</text>
-  <text class="detail" x="1480" y="960">GPS · 시뮬레이션 위치 맞춤</text>
+  <text class="detail" x="1480" y="960">GPS / 시뮬레이션 위치 맞춤</text>
 
   <text class="group" x="1480" y="1050">② 웹앱 (브라우저)</text>
 
@@ -104,7 +104,7 @@
     <ellipse class="ic" cx="70" cy="20" rx="70" ry="18" fill="#fff"/>
   </g>
   <text class="name" x="520" y="1335">정적 데이터</text>
-  <text class="detail" x="520" y="1370">도시 9개 GeoJSON · 버전 해시</text>
+  <text class="detail" x="520" y="1370">도시 9개 GeoJSON | 버전 해시</text>
 
   <!-- 불러오기: 정적 데이터 → 웹앱 -->
   <path class="line" d="M596 1216 L1000 1216 L1000 612 L1256 612" marker-end="url(#head)"/>
@@ -121,7 +121,7 @@
     <path class="ic" d="M104 150 L96 184 M136 150 L144 184 M78 186 L162 186"/>
   </g>
   <text class="name" x="1480" y="1395">HappyWheel+ 웹앱</text>
-  <text class="detail" x="1480" y="1430">TypeScript · MapLibre · GitHub Pages</text>
+  <text class="detail" x="1480" y="1430">TypeScript, MapLibre | GitHub Pages</text>
 
   <!-- 사용자 -->
   <g transform="translate(1150 1170)">
@@ -149,7 +149,7 @@
     <path class="ic" d="M30 132 L100 132"/>
   </g>
   <text class="name" x="1000" y="1760">AI 조건 해석 서버</text>
-  <text class="detail" x="1000" y="1795">Cloudflare Workers · 하루 한도</text>
+  <text class="detail" x="1000" y="1795">Cloudflare Workers | 하루 한도</text>
 
   <!-- 서버 → OpenAI -->
   <path class="line" d="M928 1632 L620 1632" marker-end="url(#head)"/>
@@ -161,5 +161,5 @@
   <text class="name" x="520" y="1760">OpenAI</text>
   <text class="detail" x="520" y="1795">gpt-4o-mini</text>
 
-  <text class="footer" x="1000" y="1872">GitHub Pages 배포 · 서버 없이 정적 파일로 동작 (AI 해석만 선택 기능)</text>
+  <text class="footer" x="1000" y="1872">GitHub Pages 배포 | 서버 없이 정적 파일로 동작 (AI 해석만 선택 기능)</text>
 </svg>
