@@ -3,7 +3,7 @@ import { Armchair, ArrowUpDown, Bath, Droplet } from "lucide";
 import type { CityEntry, PoiKind } from "../data/types";
 import type { AppMap } from "./map";
 import { prefersReducedMotion } from "./map";
-import { scoreColor, scoreColorExpression } from "./style";
+import { POI_PIXEL_RATIO, poiCanvasSize, scoreColor, scoreColorExpression } from "./style";
 
 type LngLat = [number, number];
 type Stop = { name: string; lon: number; lat: number };
@@ -116,7 +116,7 @@ function applySegments(m: AppMap, s: State): void {
   setSource(map, "segments", s.segments);
   const width: maplibregl.ExpressionSpecification = ["interpolate", ["linear"], ["zoom"], 12, 1.5, 17, 4];
   if (!map.getLayer("segments-scored")) {
-    addOrdered(map, 
+    addOrdered(map,
       {
         id: "segments-scored",
         type: "line",
@@ -127,7 +127,7 @@ function applySegments(m: AppMap, s: State): void {
       });
   }
   if (map.getLayer("segments-blocked")) map.removeLayer("segments-blocked");
-  addOrdered(map, 
+  addOrdered(map,
     {
       id: "segments-blocked",
       type: "line",
@@ -184,7 +184,7 @@ const WHEELCHAIR_LABEL: Record<string, string> = { yes: "휠체어 가능", limi
 let iconPromise: Promise<Record<PoiKind, ImageData>> | null = null;
 
 function renderIcon(kind: PoiKind): Promise<ImageData> {
-  const size = 48;
+  const size = poiCanvasSize();
   const inner = POI_ICON[kind]
     .map(([tag, attrs]) => {
       const a = Object.entries(attrs)
@@ -232,7 +232,7 @@ function applyPois(m: AppMap, s: State): void {
     if (!styleReady(m) || s.pois !== data) return;
     for (const k of POI_KINDS) {
       const name = `poi-${k}`;
-      if (!map.hasImage(name)) map.addImage(name, icons[k], { pixelRatio: 2 });
+      if (!map.hasImage(name)) map.addImage(name, icons[k], { pixelRatio: POI_PIXEL_RATIO });
     }
     setSource(map, "pois", data);
     const filter: maplibregl.FilterSpecification = ["in", ["get", "kind"], ["literal", visibleKinds(s)]];
@@ -253,7 +253,7 @@ function applyPois(m: AppMap, s: State): void {
         layout: {
           "icon-image": ["concat", "poi-", ["get", "kind"]],
           "icon-allow-overlap": true,
-          "icon-size": 0.67,
+          "icon-size": 1,
         },
       });
     }

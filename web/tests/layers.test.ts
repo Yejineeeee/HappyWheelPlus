@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { SCORE_STOPS, mapStyleUrl, scoreColorExpression } from "../src/map/style";
+import { POI_ICON_CSS_PX, POI_PIXEL_RATIO, SCORE_STOPS, poiCanvasSize, mapStyleUrl, scoreColorExpression } from "../src/map/style";
 
 describe("map style helpers", () => {
   it("scoreColorExpression uses token stops in order", () => {
@@ -17,5 +17,11 @@ describe("map style helpers", () => {
   it("mapStyleUrl returns positron for light and dark url for dark", () => {
     expect(mapStyleUrl("light")).toBe("https://tiles.openfreemap.org/styles/positron");
     expect(mapStyleUrl("dark")).toBe("https://tiles.openfreemap.org/styles/dark");
+  });
+
+  it("poi icon canvas is css size times pixel ratio", () => {
+    expect(POI_ICON_CSS_PX).toBe(32);
+    expect(poiCanvasSize()).toBe(POI_ICON_CSS_PX * POI_PIXEL_RATIO);
+    expect(poiCanvasSize()).toBe(64);
   });
 });

@@ -50,3 +50,11 @@ export function scoreColor(score: number): string {
 function parseHex(h: string): number[] {
   return [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
 }
+
+export const POI_ICON_CSS_PX = 32;
+export const POI_PIXEL_RATIO = 2;
+
+/** 편의시설 아이콘 캔버스 한 변(px) = CSS 크기 × pixelRatio. */
+export function poiCanvasSize(): number {
+  return POI_ICON_CSS_PX * POI_PIXEL_RATIO;
+}
