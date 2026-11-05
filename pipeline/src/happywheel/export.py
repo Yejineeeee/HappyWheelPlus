@@ -15,6 +15,7 @@ from .scoring import DEFAULT_WEIGHTS
 
 SURFACE_CLASSES = ("smooth", "paving", "compacted", "cobble", "unpaved", "unknown")
 POI_KINDS = ("toilet", "elevator", "bench", "fountain")
+APPROX_SNAP_M = 150.0  # stop farther than this from the routable network -> course is approximate
 
 
 def _num(x, nd: int = 1):
@@ -122,12 +123,15 @@ def build_city_outputs(city: City, G: nx.MultiGraph, pois: list[dict],
                 "extra_m": _num(aj["metrics"]["length_m"] - sj["metrics"]["length_m"]),
                 "steps_avoided": sj["metrics"]["steps_count"] - aj["metrics"]["steps_count"],
             }
+        snap_max = _num(max(short.snap_m)) if short.snap_m else None
         courses.append({
             "index": i, "name": c.name, "time_label": c.time_label,
             "stops": [{"name": s.name, "lon": round(s.lon, 5), "lat": round(s.lat, 5)}
                       for s in c.stops],
             "field": None if c.field is None else {
                 "difficulty": c.field.difficulty, "stars": c.field.stars, "note": c.field.note},
+            "snap_max_m": snap_max,
+            "approximate": snap_max is not None and snap_max > APPROX_SNAP_M,
             "reachable": acc.reachable,
             "blocked_at": None if acc.blocked_at is None else _pt(acc.blocked_at),
             "routes": {"shortest": sj, "accessible": aj},

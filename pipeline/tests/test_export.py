@@ -126,3 +126,28 @@ def test_fetch_pois_empty_result(tmp_path, monkeypatch):
                 center=(1.0, 2.0), radius_m=3000.0)
     assert fetch_pois(city, tmp_path) == []
     assert json.loads((tmp_path / "emptyville_r3000_pois.json").read_text(encoding="utf-8")) == []
+
+
+def test_snap_max_and_approximate_flag(built):
+    city, G, out, _ = built
+    normal = out["courses.json"][0]
+    assert normal["snap_max_m"] == pytest.approx(0.0, abs=1.0) and normal["approximate"] is False
+    island = out["courses.json"][1]  # stop D is 100 m from the main component
+    assert island["snap_max_m"] == pytest.approx(100.0, abs=1.0) and island["approximate"] is False
+
+
+def test_far_stop_marks_course_approximate():
+    from happywheel.export import APPROX_SNAP_M
+    from happywheel.geo import GEOD
+    G, n = make_route_graph()
+    src = Plane(3)
+    annotate(G, src)
+    a, c = node_lonlat(G, n["A"]), node_lonlat(G, n["C"])
+    lon, lat, _ = GEOD.fwd(c[0], c[1], 90, 400.0)  # 400 m east of C, 300 m beyond node 9
+    city = City("far", "x", "y", (Course("far", "t", (Stop("A", *a), Stop("F", lon, lat)), None),),
+                center=a, radius_m=3000.0)
+    out, _ = build_city_outputs(city, G, [], src)
+    course = out["courses.json"][0]
+    assert APPROX_SNAP_M == 150.0
+    assert course["approximate"] is True
+    assert course["snap_max_m"] == pytest.approx(400.0, abs=3.0)
