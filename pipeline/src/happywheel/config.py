@@ -89,7 +89,8 @@ def _parse_city(raw: dict) -> City:
         country_ko=raw["country_ko"],
         courses=courses,
         center=(lon, lat),
-        radius_m=max(MIN_RADIUS_M, far + RADIUS_MARGIN_M),
+        radius_m=float(raw["radius_m"]) if raw.get("radius_m") is not None
+        else max(MIN_RADIUS_M, far + RADIUS_MARGIN_M),
     )
 
 

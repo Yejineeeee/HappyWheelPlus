@@ -48,3 +48,25 @@ def test_invalid_rating_rejected(tmp_path):
     p.write_text(yaml.safe_dump(data, allow_unicode=True), encoding="utf-8")
     with pytest.raises(ValueError):
         load_cities(p)
+
+
+def _one_city_yaml(tmp_path, extra=None):
+    raw = {
+        "id": "x", "name_ko": "엑스", "country_ko": "나라",
+        "courses": [{
+            "name": "c", "time_label": "~10분",
+            "stops": [{"name": "a", "lon": 1.0, "lat": 2.0}],
+        }],
+    }
+    raw.update(extra or {})
+    p = tmp_path / "c.yaml"
+    p.write_text(yaml.safe_dump([raw], allow_unicode=True), encoding="utf-8")
+    return p
+
+
+def test_radius_override_used(tmp_path):
+    assert load_cities(_one_city_yaml(tmp_path, {"radius_m": 2200}))[0].radius_m == 2200.0
+
+
+def test_radius_default_without_override(tmp_path):
+    assert load_cities(_one_city_yaml(tmp_path))[0].radius_m == 3000.0
