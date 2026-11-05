@@ -10,7 +10,7 @@
 - IP당 하루 5회(`DAILY_LIMIT_PER_IP`), 전체 하루 300회(`DAILY_LIMIT_TOTAL`)까지만 처리하고 넘으면 429입니다. 횟수는 KV(`LIMITS`)에 기록하고, UTC 자정(한국 시간 오전 9시)에 초기화됩니다.
 - 입력 문장은 300자까지, 요청 본문은 4 KB까지입니다.
 - Origin 검사는 브라우저용 보호일 뿐 curl 등으로는 우회할 수 있습니다. 실제 비용 보호는 하루 한도와 OpenAI 월 예산이에요.
-- 마지막 안전망은 OpenAI 쪽 월 사용 한도입니다. OpenAI 대시보드(Settings → Limits)에서 월 예산을 직접 정해 두세요. 서버 한도를 뚫려도 이 금액 이상은 나가지 않습니다.
+- 마지막 안전망은 OpenAI 쪽 월 사용 한도입니다. OpenAI 대시보드(Settings → Limits)에서 월 예산을 직접 정해 두세요. OpenAI 대시보드에서 월 예산(사용 한도)과 알림을 정해 두면 예상 밖의 큰 비용을 막을 수 있어요.
 
 ## 배포 순서
 
@@ -23,7 +23,7 @@ npx wrangler login
 npx wrangler kv namespace create LIMITS
 ```
 
-마지막 명령이 출력한 `id`를 `wrangler.toml`의 `[[kv_namespaces]]` 아래 `id = "REPLACE_WITH_KV_ID"` 자리에 붙여 넣습니다.
+마지막 명령이 출력한 `id`를 `wrangler.toml`의 `[[kv_namespaces]]` 아래 `id = "REPLACE_WITH_KV_ID"` 자리에 붙여 넣습니다. id를 바꾸지 않으면 deploy가 KV 관련 오류로 실패해요.
 
 ```
 npx wrangler secret put OPENAI_API_KEY
@@ -42,7 +42,14 @@ npx wrangler deploy
 
 ## 로컬 개발
 
-`cp .dev.vars.example .dev.vars`(PowerShell: `Copy-Item .dev.vars.example .dev.vars`)로 `worker/.dev.vars` 파일(git 제외)을 만들고 키를 적습니다.
+`worker` 폴더에서 `.dev.vars` 파일(git 제외)을 만들고 키를 적습니다.
+
+```
+cd worker
+cp .dev.vars.example .dev.vars
+```
+
+PowerShell에서는 `cd worker` 다음에 `Copy-Item .dev.vars.example .dev.vars`를 씁니다. 파일 내용은 아래처럼 채웁니다.
 
 ```
 OPENAI_API_KEY=sk-...
@@ -64,7 +71,7 @@ URL=https://happywheel-ai.<sub>.workers.dev
 curl -X POST "$URL/weights" -H "Origin: https://yejineeeee.github.io" -H "Content-Type: application/json" -d '{"city":"paris","text":"경사가 힘들어요"}'
 ```
 
-`weights`, `required_pois`, `explanation`이 든 JSON이 오면 정상입니다. PowerShell에서는 `curl` 대신 `curl.exe`를 쓰고 `$URL` 대신 `$env:URL`을 쓰거나 주소를 그대로 적으세요. JSON 따옴표는 `'{\"city\":...}'`처럼 이스케이프해야 할 수 있습니다.
+`weights`, `required_pois`, `explanation`이 든 JSON이 오면 정상입니다. PowerShell에서는 `curl` 대신 `curl.exe`를 쓰고 `$URL` 대신 `$env:URL`을 쓰세요. 먼저 `$env:URL = "https://happywheel-ai.<sub>.workers.dev"`로 주소를 지정해야 합니다. JSON 따옴표는 `'{\"city\":...}'`처럼 이스케이프해야 할 수 있습니다.
 
 ## 키 교체와 한도 변경
 
@@ -79,6 +86,5 @@ curl -X POST "$URL/weights" -H "Origin: https://yejineeeee.github.io" -H "Conten
 - 502 `upstream`: OpenAI 호출이 실패했거나 시간이 초과됐거나 응답 형식이 맞지 않습니다. 키 유효성, OpenAI 월 한도 소진 여부, 모델 이름을 확인하고 `npx wrangler tail`로 로그를 봅니다.
 - 500 `server`: 보통 `OPENAI_API_KEY`가 설정되지 않았습니다. `npx wrangler secret put OPENAI_API_KEY`를 실행하세요.
 - 503 `server`: KV 오류입니다. `wrangler.toml`의 LIMITS `id`와 바인딩 이름을 확인하고 `npx wrangler tail`로 로그를 봅니다.
-- 400 `bad_request` / `bad_city`: JSON이 아니거나 `city`·`text`가 비었거나, 알 수 없는 도시입니다.
+- 400 `bad_request` / `bad_city`: `text`가 비었거나(공백만 있어도) 형식이 틀렸을 때 `bad_request`, 모르는 도시면 `bad_city`입니다.
 - 413 `too_long`: 문장이 300자를 넘었거나 본문이 4 KB를 넘었습니다.
-- 배포 단계에서 KV 오류: `id`를 `REPLACE_WITH_KV_ID` 그대로 두지 않았는지 확인하세요.
