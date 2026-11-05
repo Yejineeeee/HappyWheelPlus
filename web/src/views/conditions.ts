@@ -324,6 +324,8 @@ export function conditionsPanel(opts: PanelOpts): ConditionsPanel {
       dead = true;
       if (timer) clearTimeout(timer);
       timer = null;
+      // 내 조건 점수로 칠한 히트맵이 남지 않게, 적용했던 경우에만 내보낸 점수로 되돌린다.
+      if (appliedCustom && segFc) showSegments(ctx.map, segFc, null);
       appliedCustom = false;
     },
   };
