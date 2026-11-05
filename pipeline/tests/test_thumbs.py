@@ -58,3 +58,47 @@ def test_thumbs_cli_writes_file(tmp_path):
     assert (d / "thumb.webp").stat().st_size <= MAX_BYTES
     assert not (tmp_path / "other" / "thumb.webp").exists()
     assert main(["thumbs", "--out", str(tmp_path), "--city", "seoul"]) == 2
+
+
+def _img():
+    from PIL import Image
+    # noisy image so that the encoded size depends on quality and size
+    import random
+    rnd = random.Random(1)
+    img = Image.new("RGB", (WIDTH, HEIGHT))
+    img.putdata([(rnd.randrange(256), rnd.randrange(256), rnd.randrange(256)) for _ in range(WIDTH * HEIGHT)])
+    return img
+
+
+def test_fit_webp_shrinks_the_image_when_quality_is_not_enough():
+    from PIL import Image
+    from happywheel.thumbs import QUALITIES, encode_webp, fit_webp
+
+    img = _img()
+    full_lowest = len(encode_webp(img, QUALITIES[-1]))
+    small = len(encode_webp(img, QUALITIES[-1], 0.9))
+    assert small < full_lowest
+    data = fit_webp(img, max_bytes=small)
+    assert len(data) <= small
+    assert Image.open(io.BytesIO(data)).size == (round(WIDTH * 0.9), round(HEIGHT * 0.9))
+
+
+def test_fit_webp_raises_when_even_the_smallest_is_too_big():
+    from happywheel.thumbs import ThumbTooLarge, fit_webp
+
+    with pytest.raises(ThumbTooLarge):
+        fit_webp(_img(), max_bytes=200)
+    with pytest.raises(ThumbTooLarge):
+        render_thumb(_fc(), max_bytes=10)
+
+
+def test_thumbs_cli_fails_when_the_thumbnail_is_too_big(tmp_path, monkeypatch):
+    import happywheel.thumbs as thumbs
+
+    d = tmp_path / "lucerne"
+    d.mkdir()
+    (d / "segments.geojson").write_text(json.dumps(_fc()), encoding="utf-8")
+    monkeypatch.setattr(thumbs, "MAX_BYTES", 10)
+    monkeypatch.setattr(thumbs.render_thumb, "__defaults__", (10,))
+    assert main(["thumbs", "--out", str(tmp_path)]) == 1
+    assert not (d / "thumb.webp").exists()

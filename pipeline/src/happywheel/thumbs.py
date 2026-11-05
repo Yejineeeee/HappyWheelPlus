@@ -59,8 +59,8 @@ def _frame(xs: list[float], ys: list[float]) -> tuple[float, float, float, float
     return cx - w / 2, cx + w / 2, cy - h / 2, cy + h / 2
 
 
-def render_thumb(fc: dict) -> bytes:
-    """Render a segments FeatureCollection to WebP bytes (WIDTH x HEIGHT, <= MAX_BYTES)."""
+def render_thumb(fc: dict, max_bytes: int = MAX_BYTES) -> bytes:
+    """Render a segments FeatureCollection to WebP bytes (WIDTH x HEIGHT, or smaller when needed; <= max_bytes)."""
     from matplotlib.collections import LineCollection
     from matplotlib.figure import Figure
     from PIL import Image
@@ -102,13 +102,38 @@ def render_thumb(fc: dict) -> bytes:
     img = Image.open(io.BytesIO(buf.getvalue())).convert("RGB")
     if img.size != (WIDTH, HEIGHT):
         img = img.resize((WIDTH, HEIGHT))
-    for quality in (82, 74, 66, 58, 50, 40):
-        out = io.BytesIO()
-        img.save(out, format="WEBP", quality=quality, method=6)
-        data = out.getvalue()
-        if len(data) <= MAX_BYTES:
-            return data
-    return data
+    return fit_webp(img, max_bytes)
+
+
+QUALITIES = (82, 74, 66, 58, 50, 40)
+# when even the lowest quality is too big, shrink the image and try the qualities again
+SCALES = (1.0, 0.9, 0.8)
+
+
+class ThumbTooLarge(ValueError):
+    """The thumbnail cannot be encoded within the byte limit."""
+
+
+def encode_webp(img, quality: int, scale: float = 1.0) -> bytes:
+    from PIL import Image
+
+    if scale != 1.0:
+        img = img.resize((round(img.width * scale), round(img.height * scale)), Image.LANCZOS)
+    out = io.BytesIO()
+    img.save(out, format="WEBP", quality=quality, method=6)
+    return out.getvalue()
+
+
+def fit_webp(img, max_bytes: int = MAX_BYTES) -> bytes:
+    """Encode img as WebP within max_bytes: lower the quality first, then the size. Raises ThumbTooLarge."""
+    smallest = None
+    for scale in SCALES:
+        for quality in QUALITIES:
+            data = encode_webp(img, quality, scale)
+            if len(data) <= max_bytes:
+                return data
+            smallest = len(data) if smallest is None else min(smallest, len(data))
+    raise ThumbTooLarge(f"thumbnail is {smallest} bytes even at the smallest size; limit is {max_bytes}")
 
 
 def write_thumb(city_dir: Path) -> int:
