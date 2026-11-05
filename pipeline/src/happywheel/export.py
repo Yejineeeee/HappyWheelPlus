@@ -33,6 +33,45 @@ def _pt(c) -> list[float]:
     return [round(float(c[0]), 5), round(float(c[1]), 5)]
 
 
+def span_corrected_elevations(G, node_elev: dict) -> dict:
+    """Return node_elev with interior bridge/tunnel nodes re-interpolated.
+
+    An interior span node touches only span edges (self-loops ignored); the DEM there shows
+    the river or ground below the deck. Its elevation becomes a length-weighted linear
+    interpolation between the two nearest non-interior ("outer") nodes of its span network,
+    found by Dijkstra over span edges only: e = (e1*d2 + e2*d1) / (d1 + d2). On a plain chain
+    this is exact interpolation by cumulative length; at branches it blends the two nearest
+    outer nodes. Outer nodes with no elevation are skipped (one usable -> its value, none ->
+    None)."""
+    interior = set()
+    for n in G.nodes:
+        edges = [d for _, w, d in G.edges(n, data=True) if w != n]
+        if edges and all(is_span(d) for d in edges):
+            interior.add(n)
+    out = dict(node_elev)
+    if not interior:
+        return out
+    S = nx.Graph()
+    for u, v, d in G.edges(data=True):
+        if u != v and is_span(d):
+            w = float(d["length"])
+            if not S.has_edge(u, v) or S[u][v]["w"] > w:
+                S.add_edge(u, v, w=w)
+    for n in interior:
+        dist = nx.single_source_dijkstra_path_length(
+            S, n, weight="w", cutoff=None) if n in S else {}
+        outer = sorted((dd, m) for m, dd in dist.items()
+                       if m not in interior and node_elev.get(m) is not None)
+        if not outer:
+            out[n] = None
+        elif len(outer) == 1 or outer[0][0] + outer[1][0] <= 0:
+            out[n] = node_elev[outer[0][1]]
+        else:
+            (d1, m1), (d2, m2) = outer[0], outer[1]
+            out[n] = (node_elev[m1] * d2 + node_elev[m2] * d1) / (d1 + d2)
+    return out
+
+
 def route_profile(G, r: RouteResult, node_elev: dict, src: ElevationSource,
                   step_m: float = 25.0) -> list[list]:
     """Rows [dist_m, elev_m|None, grade_pct|None] every step_m along the route.
@@ -126,7 +165,8 @@ def build_city_outputs(city: City, G: nx.MultiGraph, pois: list[dict],
     node_idx = {n: i for i, n in enumerate(G.nodes)}
     nodes = [_pt((G.nodes[n]["x"], G.nodes[n]["y"])) for n in G.nodes]
     elevs = src.elevations([(G.nodes[n]["x"], G.nodes[n]["y"]) for n in G.nodes])
-    node_elev = dict(zip(G.nodes, elevs))
+    node_elev = span_corrected_elevations(G, dict(zip(G.nodes, elevs)))
+    elevs = [node_elev[n] for n in G.nodes]
 
     seg_of: dict[tuple, int] = {}
     features, rows = [], []
@@ -144,10 +184,11 @@ def build_city_outputs(city: City, G: nx.MultiGraph, pois: list[dict],
                 "grade_max": _num(d.get("grade_max")),
                 "surface_class": d["surface_class"],
                 "wc_yes": bool(d["wc_yes"]), "steps": bool(d["steps"]),
-                "blocked": bool(d["blocked"]), "score": _num(d.get("score")),
+                "blocked": bool(d["blocked"]), "span": is_span(d),
+                "score": _num(d.get("score")),
             },
         })
-        flags = (1 if d["blocked"] else 0) | (2 if d["steps"] else 0) | (4 if d["wc_yes"] else 0)
+        flags = (1 if d["blocked"] else 0) | (2 if d["steps"] else 0) | (4 if d["wc_yes"] else 0)             | (8 if is_span(d) else 0)
         rows.append([node_idx[u], node_idx[v], _num(d["length"]), _num(d["p_slope"]),
                      _num(d["p_surface"]), _num(d["p_kerb"]), _num(d["p_unc"]), flags])
 

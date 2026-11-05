@@ -47,10 +47,11 @@ Copernicus GLO-30은 표면 모델(DSM)이라 건물과 수목 높이가 섞여 
 
 도시마다 `web/public/data/<도시>/`에 네 파일이 생기고, `web/public/data/cities.json`이 도시 색인이다. 좌표는 모두 [경도, 위도], 소수 5자리. 값이 없으면 `null`.
 
-- `segments.geojson`: 간선 하나가 Feature 하나다. Feature `id`가 구간 id(seg_id)이며 `properties`에는 `id`를 따로 넣지 않는다. `properties`: `len`(m), `p_slope`, `p_surface`, `p_kerb`, `p_unc`, `grade_max`(%), `surface_class`, `wc_yes`, `steps`, `blocked`, `score`. **좌표는 `graph.json` 간선의 u→v 방향**(첫 좌표가 노드 u, 마지막 좌표가 노드 v)으로 정렬되어 있다.
+- `segments.geojson`: 간선 하나가 Feature 하나다. Feature `id`가 구간 id(seg_id)이며 `properties`에는 `id`를 따로 넣지 않는다. `properties`: `len`(m), `p_slope`, `p_surface`, `p_kerb`, `p_unc`, `grade_max`(%), `surface_class`, `wc_yes`, `steps`, `blocked`, `span`(bool, 다리·터널 여부), `score`. **좌표는 `graph.json` 간선의 u→v 방향**(첫 좌표가 노드 u, 마지막 좌표가 노드 v)으로 정렬되어 있다.
 - `graph.json`: `{"nodes": [[lon, lat], ...], "elev": [...], "edges": [...]}`.
   - `elev[i]`는 노드 i의 고도(m, 소수 1자리, 지형 보정한 DEM 값, 없으면 `null`).
-  - 간선 행은 `[u, v, len, p_slope, p_surface, p_kerb, p_unc, flags]`이고 u, v는 `nodes`의 인덱스다. **seg_id는 행 번호**(0부터)이며 `segments.geojson`의 Feature `id`와 같다. `flags` 비트: 1 = blocked, 2 = steps, 4 = wheelchair=yes.
+  - 간선 행은 `[u, v, len, p_slope, p_surface, p_kerb, p_unc, flags]`이고 u, v는 `nodes`의 인덱스다. **seg_id는 행 번호**(0부터)이며 `segments.geojson`의 Feature `id`와 같다. `flags` 비트: 1 = blocked, 2 = steps, 4 = wheelchair=yes, 8 = span(다리 또는 터널: `bridge`/`tunnel` 태그가 있고 "no"가 아님).
+  - 다리 중간 노드 고도: span이 아닌 간선이 하나도 닿지 않는 내부 노드는 DEM(강 수면·지면) 대신, span 간선만 따라 길이 기준 가장 가까운 두 바깥(비-내부) 노드의 고도를 길이 비례로 선형 보간한 값이다(`e = (e1·d2 + e2·d1)/(d1+d2)`; 단순 연쇄에서는 누적 길이 보간과 같고, 갈라지는 곳에서는 가장 가까운 두 끝을 섞는다). 바깥 노드 고도가 없으면 있는 쪽 값, 둘 다 없으면 `null`. `courses.json`의 `profile`도 이 보정된 노드 고도를 쓴다.
   - 웹에서 경로를 다시 계산해 고도 프로파일을 그릴 때, 다리·터널 간선은 DEM을 읽지 않고 두 끝 노드 `elev` 사이를 선형 보간한다(단순화 후 다리 끝 노드는 땅 위에 있다).
 - `pois.geojson`: 편의시설 점(`kind`: toilet, elevator, bench, fountain).
 - `courses.json`: 코스 배열. 경로(`routes.shortest`, `routes.accessible`)는 `coords`, `seg_ids`, `metrics`, `profile`을 가진다. **`profile` 행은 `[거리 m, 고도 m|null, 경사 %|null]`**이며 25 m 간격이다. 고도는 DEM 값이되 다리·터널 간선 위에서는 그 간선 두 끝 노드 고도 사이를 선형 보간한 값이고, 경사는 표본이 놓인 구간의 `grade_max`(없으면 `null`)다. 접근성 경로가 없으면(`reachable=false`) `routes.accessible`과 `comparison`이 `null`, `blocked_at`에 끊긴 정류장 좌표가 들어가며 `approximate`, `snap_max_m`은 그대로 있다. 이 모양은 `tests/data/courses_unreachable.json`에 고정해 두었다.

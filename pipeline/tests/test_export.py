@@ -250,3 +250,59 @@ def test_write_outputs_returns_data_version(tmp_path):
     assert ver == h.hexdigest()[:12] and len(ver) == 12
     out["a.json"] = [1, 3]
     assert write_outputs(tmp_path, "c", out) != ver
+
+
+def _span_chain_graph():
+    """Bottom row 0-1-2 is a two-edge bridge; node 1 touches only bridge edges."""
+    G = make_grid_graph({(0, 1): {"bridge": "yes"}, (1, 2): {"bridge": "yes"}}, node_tags={})
+    G.remove_edge(1, 4)
+    return G
+
+
+def test_span_flag_and_property(built):
+    out = built[2]
+    segs = {f["id"]: f["properties"] for f in out["segments.geojson"]["features"]}
+    assert all(isinstance(p["span"], bool) for p in segs.values())
+    G = make_grid_graph({(1, 2): {"bridge": "yes"}, (3, 4): {"tunnel": "no"}}, node_tags={})
+    src = Plane(0)
+    annotate(G, src)
+    a = node_lonlat(G, 0)
+    city = City("sp", "x", "y", (Course("c", "t", (Stop("A", *a), Stop("B", *a)), None),),
+                center=a, radius_m=3000.0)
+    o, _ = build_city_outputs(city, G, [], src)
+    spans = 0
+    for f, row, (u, v, _k, d) in zip(o["segments.geojson"]["features"],
+                                     o["graph.json"]["edges"], G.edges(keys=True, data=True)):
+        is_bridge = d.get("bridge") == "yes"
+        assert f["properties"]["span"] is is_bridge
+        assert bool(row[7] & 8) is is_bridge
+        spans += is_bridge
+    assert spans == 1
+
+
+def test_interior_span_node_interpolated():
+    G = _span_chain_graph()
+    src = River(G.nodes[0]["x"], G.nodes[2]["x"])
+    annotate(G, src)
+    a = node_lonlat(G, 0)
+    city = City("ch", "x", "y", (Course("c", "t", (Stop("A", *a), Stop("B", *a)), None),),
+                center=a, radius_m=3000.0)
+    out, _ = build_city_outputs(city, G, [], src)
+    nodes = list(G.nodes)
+    elev = out["graph.json"]["elev"]
+    assert elev[nodes.index(0)] == 10.0 and elev[nodes.index(2)] == 20.0
+    assert elev[nodes.index(1)] == pytest.approx(15.0, abs=0.1)  # not the river's -5
+
+
+def test_profile_no_dip_across_span_chain():
+    G = _span_chain_graph()
+    src = River(G.nodes[0]["x"], G.nodes[2]["x"])
+    annotate(G, src)
+    a, b = node_lonlat(G, 0), node_lonlat(G, 2)
+    city = City("ch", "x", "y", (Course("c", "t", (Stop("A", *a), Stop("B", *b)), None),),
+                center=a, radius_m=3000.0)
+    out, _ = build_city_outputs(city, G, [], src)
+    prof = out["courses.json"][0]["routes"]["shortest"]["profile"]
+    assert prof and min(e for _, e, _ in prof) >= 10.0
+    by_d = {round(d): e for d, e, _ in prof}
+    assert by_d[100] == pytest.approx(15.0, abs=0.2)
