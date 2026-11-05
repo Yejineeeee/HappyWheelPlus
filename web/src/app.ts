@@ -6,7 +6,9 @@ import { formatRoute, onRouteChange, parseRoute, type Route } from "./router";
 import { errorBlock, loadingBlock } from "./ui/components";
 import { mountSheet } from "./ui/sheet";
 import { mountShell } from "./ui/shell";
+import { aboutView } from "./views/about";
 import { cityView } from "./views/city";
+import { compareView } from "./views/compare";
 import { courseView } from "./views/course";
 import { homeView } from "./views/home";
 import { notFoundView } from "./views/notFound";
@@ -24,9 +26,9 @@ function makeView(route: Route): View {
     case "nav":
       return placeholderView("길안내");
     case "compare":
-      return placeholderView("도시 비교");
+      return compareView();
     case "about":
-      return placeholderView("분석 방법");
+      return aboutView();
     case "notFound":
       return notFoundView();
   }
@@ -42,7 +44,8 @@ function layerContext(route: Route): string | null {
     case "nav":
       return `city:${route.city}`;
     default:
-      return null;
+      // 비교·방법론·없는 주소는 서로 다른 맥락이라 이동할 때 지도 마커를 지운다.
+      return route.name;
   }
 }
 

@@ -5,7 +5,7 @@ export type ProfileRow = [number, number | null, number | null];
 
 const STEEP_PCT = 6;
 
-function cssVar(name: string, fallback: string): string {
+export function cssVar(name: string, fallback: string): string {
   const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
   return v || fallback;
 }

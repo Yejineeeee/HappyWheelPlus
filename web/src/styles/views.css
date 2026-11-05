@@ -181,3 +181,33 @@
 .cond-status { min-height: 1.5em; color: var(--muted); font-size: 14px; }
 .cond-warnings .notice { margin-top: 8px; }
 .diff-table { margin-top: 8px; }
+
+/* 도시 비교 */
+.compare .intro { margin: 0 0 8px; }
+.chart-block { padding: 16px 0 20px; border-bottom: 1px solid var(--line); }
+.chart-block h2 { margin: 0 0 4px; font-size: 18px; }
+.chart-note { margin: 0 0 8px; color: var(--muted); font-size: 14px; }
+.chart-plot { width: 100%; min-height: 120px; }
+.chart-plot svg { max-width: 100%; display: block; }
+.chart-legend { list-style: none; display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 0 0 6px; padding: 0; font-size: 13px; }
+.chart-legend li { display: flex; align-items: center; gap: 6px; }
+.chart-swatch { display: inline-block; width: 14px; height: 14px; border-radius: 3px; }
+.chart-swatch.dot { border-radius: 50%; }
+.chart-swatch.diamond { border-radius: 2px; transform: rotate(45deg) scale(0.8); }
+.chart-small { margin: 0 0 8px; }
+.chart-small figcaption { font-weight: 600; font-size: 14px; margin: 8px 0 0; }
+.chart-toggle { margin-top: 8px; }
+.chart-table-wrap { margin-top: 8px; overflow-x: auto; }
+.chart-table th, .chart-table td { white-space: nowrap; }
+
+/* 분석 방법 */
+.about { line-height: 1.6; }
+.about-section { padding: 8px 0 12px; }
+.about-section h2 { margin: 16px 0 8px; font-size: 18px; }
+.about p { margin: 0 0 10px; }
+.about-list { margin: 0 0 10px; padding-left: 20px; }
+.about-list li { margin-bottom: 6px; overflow-wrap: anywhere; }
+.about-formula { padding: 10px 12px; background: var(--bg); border-radius: 8px; font-weight: 600; font-size: 14px; }
+.about-table-wrap { overflow-x: auto; margin: 8px 0 12px; }
+.about-table th, .about-table td { text-align: left; vertical-align: top; font-size: 14px; }
+.about a { color: var(--accent); }
