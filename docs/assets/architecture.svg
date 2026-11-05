@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1118 360" width="1118" height="360" font-family="Pretendard, system-ui, sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,1 L9,5 L0,9" fill="none" stroke="#9CA3AF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <clipPath id="webClip"><rect x="864" y="60" width="230" height="110" rx="14"/></clipPath>
+    <style>
+      .box { fill: #FFFFFF; stroke: #E5E7EB; stroke-width: 1.5; }
+      .title { font-size: 18px; font-weight: 700; fill: #111418; }
+      .desc { font-size: 13px; fill: #6B7280; }
+      .tech { font-size: 12.5px; fill: #9CA3AF; }
+      .arrow { stroke: #9CA3AF; stroke-width: 1.5; fill: none; }
+    </style>
+  </defs>
+  <rect x="0" y="0" width="1118" height="360" rx="20" fill="#FFFFFF"/>
+  <rect class="box" x="24" y="60" width="230" height="110" rx="14"/>
+  <text class="title" x="139" y="108" text-anchor="middle">① 데이터</text>
+  <text class="desc" x="139" y="134" text-anchor="middle">OSM · Copernicus DEM · 탐방 기록</text>
+  <path class="arrow" d="M262 115 H296" marker-end="url(#arrow)"/>
+  <rect class="box" x="304" y="60" width="230" height="110" rx="14"/>
+  <text class="title" x="419" y="108" text-anchor="middle">② 분석 파이프라인</text>
+  <text class="desc" x="419" y="134" text-anchor="middle">수집 → 지형 보정 → 채점 → 경로</text>
+  <text class="tech" x="419" y="42" text-anchor="middle">Python</text>
+  <path class="arrow" d="M542 115 H576" marker-end="url(#arrow)"/>
+  <rect class="box" x="584" y="60" width="230" height="110" rx="14"/>
+  <text class="title" x="699" y="108" text-anchor="middle">③ 정적 데이터</text>
+  <text class="desc" x="699" y="134" text-anchor="middle">도시 9개, 버전 해시로 캐시</text>
+  <text class="tech" x="699" y="42" text-anchor="middle">GeoJSON · JSON</text>
+  <path class="arrow" d="M822 115 H856" marker-end="url(#arrow)"/>
+  <rect class="box" x="864" y="60" width="230" height="110" rx="14"/>
+  <rect x="864" y="60" width="230" height="7" fill="#C8F04B" clip-path="url(#webClip)"/>
+  <text class="title" x="979" y="108" text-anchor="middle">④ 웹앱</text>
+  <text class="desc" x="979" y="134" text-anchor="middle">브라우저에서 다시 채점·탐색</text>
+  <text class="tech" x="979" y="42" text-anchor="middle">TypeScript · GitHub Pages</text>
+  <rect class="box" x="744" y="248" width="230" height="76" rx="14"/>
+  <text class="title" x="859" y="280" text-anchor="middle" style="font-size:16px">AI 조건 해석</text>
+  <text class="desc" x="859" y="304" text-anchor="middle">Cloudflare Workers</text>
+  <path class="arrow" d="M934 176 V242" stroke-dasharray="5 5" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+  <text class="desc" x="946" y="214">선택 기능</text>
+  <path class="arrow" d="M980 286 H1000" marker-end="url(#arrow)"/>
+  <rect x="1006" y="268" width="76" height="36" rx="18" fill="#FFFFFF" stroke="#E5E7EB" stroke-width="1.5"/>
+  <text x="1044" y="291" text-anchor="middle" style="font-size:13px; font-weight:600; fill:#111418">OpenAI</text>
+</svg>
