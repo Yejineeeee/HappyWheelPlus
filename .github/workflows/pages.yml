@@ -22,7 +22,7 @@ jobs:
           cache-dependency-path: pipeline/pyproject.toml
       - name: 파이프라인 테스트
         run: |
-          pip install -e "pipeline[dev]"
+          pip install -e ".[test]"
           pytest -q
         working-directory: pipeline
 
@@ -42,8 +42,29 @@ jobs:
         with:
           path: web/dist
 
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: 웹 설치
+        run: npm ci
+        working-directory: web
+      - name: 브라우저 설치
+        run: npx playwright install --with-deps chromium
+        working-directory: web
+      - name: 스모크 테스트
+        run: npm run e2e
+        working-directory: web
+        env:
+          CI: "true"
+
   deploy:
-    needs: test
+    needs: [test, e2e]
     runs-on: ubuntu-latest
     permissions:
       pages: write
