@@ -95,7 +95,7 @@ export function buildInstructions(
       items.push({ atM: s.startM, kind: "slope", text: `경사 ${Math.round(p.grade_max ?? 0)}% 구간 시작` });
     }
     if (p.surface_class === "cobble" && prev?.surface_class !== "cobble") {
-      items.push({ atM: s.startM, kind: "cobble", text: "돌길 구간 시작" });
+      items.push({ atM: s.startM, kind: "cobble", text: "돌길 시작" });
     }
     if (p.p_kerb > 0 && !((prev?.p_kerb ?? 0) > 0)) {
       items.push({ atM: s.startM, kind: "kerb", text: "높은 연석 주의" });

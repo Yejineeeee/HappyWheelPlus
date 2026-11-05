@@ -10,11 +10,12 @@ vi.mock("../src/map/layers", () => ({
   showRouteProgress: vi.fn(),
   showStops: vi.fn(),
   showUser: vi.fn(),
+  setSegmentsOpacity: vi.fn(),
   prefersReducedMotion: vi.fn(() => false),
 }));
 
 import { loadCourses, loadSegments } from "../src/data/load";
-import { showRouteProgress, showUser } from "../src/map/layers";
+import { setSegmentsOpacity, showRouteProgress, showUser } from "../src/map/layers";
 import { mountSheet } from "../src/ui/sheet";
 import { navView, segmentSpans } from "../src/views/nav";
 import type { AppContext } from "../src/views/types";
@@ -136,6 +137,7 @@ describe("nav view", () => {
     vi.advanceTimersByTime(2000);
     expect(showUser).toHaveBeenCalled();
     expect(showRouteProgress).toHaveBeenCalled();
+    expect(setSegmentsOpacity).toHaveBeenCalledWith(expect.anything(), 0.35);
     expect(card.textContent).toContain("남은 거리");
     const controls = ctx.sheet.el.querySelector(".nav-controls")!;
     const sim = [...controls.querySelectorAll("button")].find((b) => b.textContent === "가상 위치");

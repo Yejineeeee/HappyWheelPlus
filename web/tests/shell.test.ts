@@ -39,6 +39,27 @@ describe("shell header and page head", () => {
     expect(about.getAttribute("aria-current")).toBe("page");
   });
 
+  it("header links keep their full accessible name when the short label is shown", () => {
+    const shell = mountShell(document.getElementById("app")!);
+    const links = [...shell.header.querySelectorAll<HTMLAnchorElement>(".header-link")];
+    expect(links.map((a) => a.getAttribute("aria-label"))).toEqual(["도시 비교", "분석 방법"]);
+  });
+
+  it("matches aria-current by route, not exact hash; brand is current on home", () => {
+    const shell = mountShell(document.getElementById("app")!);
+    const brand = shell.header.querySelector("a.brand")!;
+    const [compare] = [...shell.header.querySelectorAll(".header-link")];
+    expect(brand.getAttribute("aria-current")).toBe("page");
+    location.hash = "#/compare/";
+    window.dispatchEvent(new HashChangeEvent("hashchange"));
+    expect(compare.getAttribute("aria-current")).toBe("page");
+    expect(brand.hasAttribute("aria-current")).toBe(false);
+    location.hash = "#/lucerne";
+    window.dispatchEvent(new HashChangeEvent("hashchange"));
+    expect(compare.hasAttribute("aria-current")).toBe(false);
+    expect(brand.hasAttribute("aria-current")).toBe(false);
+  });
+
   it("renders breadcrumb links and the page title at the top of the panel", () => {
     const shell = mountShell(document.getElementById("app")!);
     shell.setTitle("에펠 코스", [{ label: "파리", href: "#/paris" }]);

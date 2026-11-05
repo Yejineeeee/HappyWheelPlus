@@ -24,13 +24,11 @@ export function homeStats(cities: CityEntry[]): {
   cities: number;
   networkKm: number;
   courses: number;
-  meanScore: number | null;
 } {
   const networkKm = cities.reduce((a, c) => a + c.metrics.network_km, 0);
   const courses = cities.reduce((a, c) => a + c.course_count, 0);
-  const meanScore = cities.length > 0 ? cities.reduce((a, c) => a + c.metrics.mean_score, 0) / cities.length : null;
   const countries = new Set(cities.map((c) => c.country_ko)).size;
-  return { countries, cities: cities.length, networkKm, courses, meanScore };
+  return { countries, cities: cities.length, networkKm, courses };
 }
 
 /** 첫 화면 소개 문장. 숫자만 조금 굵게 보인다. */

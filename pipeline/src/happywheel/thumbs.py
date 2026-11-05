@@ -59,8 +59,10 @@ def _frame(xs: list[float], ys: list[float]) -> tuple[float, float, float, float
     return cx - w / 2, cx + w / 2, cy - h / 2, cy + h / 2
 
 
-def render_thumb(fc: dict, max_bytes: int = MAX_BYTES) -> bytes:
+def render_thumb(fc: dict, max_bytes: int | None = None) -> bytes:
     """Render a segments FeatureCollection to WebP bytes (WIDTH x HEIGHT, or smaller when needed; <= max_bytes)."""
+    if max_bytes is None:
+        max_bytes = MAX_BYTES
     from matplotlib.collections import LineCollection
     from matplotlib.figure import Figure
     from PIL import Image
@@ -124,8 +126,10 @@ def encode_webp(img, quality: int, scale: float = 1.0) -> bytes:
     return out.getvalue()
 
 
-def fit_webp(img, max_bytes: int = MAX_BYTES) -> bytes:
+def fit_webp(img, max_bytes: int | None = None) -> bytes:
     """Encode img as WebP within max_bytes: lower the quality first, then the size. Raises ThumbTooLarge."""
+    if max_bytes is None:
+        max_bytes = MAX_BYTES
     smallest = None
     for scale in SCALES:
         for quality in QUALITIES:

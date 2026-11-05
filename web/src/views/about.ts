@@ -62,7 +62,7 @@ export function buildAbout(index: CityIndex): HTMLElement {
     section(
       "프로젝트 배경",
       p(
-        "HappyWheel+는 2025–26 동계 해외문화탐방 8조가 휠체어 이용자를 위한 유럽 여행 코스를 직접 다녀오며 시작한 프로젝트예요. 4개국 9개 도시를 걸으며 코스별 난이도와 메모를 현장 기록으로 남겼어요.",
+        "HappyWheel+는 2025–26 동계 해외문화탐방 8조가 휠체어 이용자를 위한 유럽 여행 코스를 직접 다녀오며 시작한 프로젝트예요. 4개국 9개 도시를 걸으며 탐방팀 체감과 메모를 현장 기록으로 남겼어요.",
       ),
       p(
         "이 사이트는 그 코스를 지도 데이터로 다시 분석한 결과예요. 길 하나하나에 접근성 점수를 매기고, 코스마다 최단 경로와 휠체어 경로를 나란히 보여 줘요.",
@@ -79,7 +79,7 @@ export function buildAbout(index: CityIndex): HTMLElement {
           "고도: Copernicus DEM GLO-30. © DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018 provided under COPERNICUS by the European Union and ESA; all rights reserved.",
         ],
         ["배경 지도: OpenFreeMap, © OpenMapTiles, © OpenStreetMap contributors."],
-        ["현장 기록: 탐방 때 직접 적은 코스별 난이도(1~5)와 메모."],
+        ["현장 기록: 탐방 때 직접 적은 탐방팀 체감(1~5)와 메모."],
       ]),
       p("분석 반경은 코스 정류장 평균 위치에서 가장 먼 정류장보다 500m 더 먼 곳까지(최소 3km)이고, 영역은 정사각형이에요."),
     ),

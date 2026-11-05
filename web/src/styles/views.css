@@ -397,7 +397,8 @@
 @media (min-width: 1024px) {
   .nav-card { top: var(--space-4); left: var(--space-4); right: auto; width: min(440px, calc(100% - 2 * var(--space-4) - 72px)); }
 }
-.nav-instruction { margin: 0; font-size: 22px; font-weight: 700; line-height: 1.3; letter-spacing: -0.01em; }
+.nav-instruction { margin: 0; font-size: 22px; font-weight: 700; line-height: 1.3; letter-spacing: -0.01em; word-break: keep-all; }
+@media (max-width: 420px) { .nav-instruction { font-size: 18px; } }
 .nav-meta { margin: 0; display: flex; flex-wrap: wrap; gap: 0 var(--space-3); font-size: 14px; font-weight: 600; opacity: 0.85; font-variant-numeric: tabular-nums; }
 .nav-reason { margin: 0; font-size: 14px; line-height: 1.45; }
 .nav-reason[hidden] { display: none; }

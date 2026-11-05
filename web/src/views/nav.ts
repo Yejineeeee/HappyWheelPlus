@@ -2,7 +2,7 @@ import { currentRoute } from "../core/conditions";
 import { distM } from "../core/geo";
 import { loadCourses, loadSegments } from "../data/load";
 import type { Course, SegmentProps } from "../data/types";
-import { prefersReducedMotion, showRouteProgress, showRoutes, showStops, showUser } from "../map/layers";
+import { prefersReducedMotion, setSegmentsOpacity, showRouteProgress, showRoutes, showStops, showUser } from "../map/layers";
 import { buildInstructions, type Instruction } from "../nav/instructions";
 import { startNav, type NavHandle, type NavSource, type NavUpdate } from "../nav/controller";
 import { cumulative, locateForward, splitAt } from "../nav/progress";
@@ -24,6 +24,8 @@ const NO_LOCATION_REASON: Record<"denied" | "unavailable", string> = {
 };
 /** 좁은 화면 접힌 높이: 손잡이 + 제목 + 컨트롤 한 줄. */
 const NAV_PEEK = 184;
+/** 길안내에서는 길 점수 히트맵을 코스 화면처럼 흐리게 깔아 경로가 먼저 보이게 한다. */
+const NAV_HEATMAP_OPACITY = 0.35;
 
 /** 경로를 이루는 구간마다 경로 위 [시작, 끝] 거리를 구한다. 구간 좌표는 u→v 방향이라 진행 방향에 맞춰 뒤집어 잇는다. */
 export function segmentSpans(
@@ -79,6 +81,7 @@ export function navView(cityId: string, courseIndex: number): View {
   let mapRef: AppContext["map"] | null = null;
   let touchedMap = false;
   let card: HTMLElement | null = null;
+  let cardWatch: ResizeObserver | null = null;
 
   const stopNav = (): void => {
     nav?.stop();
@@ -150,6 +153,7 @@ export function navView(cityId: string, courseIndex: number): View {
         // 지도를 넓게 쓰도록 시트는 컨트롤 한 줄만 보이게 접고, 안내 카드는 지도 위쪽에 띄운다.
         ctx.sheet.setPeek(NAV_PEEK);
         ctx.sheet.setSnap("peek");
+        setSegmentsOpacity(ctx.map, NAV_HEATMAP_OPACITY);
         showStops(ctx.map, course.stops);
         showRoutes(ctx.map, null, coords);
 
@@ -172,14 +176,31 @@ export function navView(cityId: string, courseIndex: number): View {
         // 첫 위치가 오기 전에도 경로가 보이도록 경로 전체에 맞춘다(위쪽은 안내 카드 높이만큼 비운다).
         const lons = coords.map((c) => c[0]);
         const lats = coords.map((c) => c[1]);
-        const pad = fitPadding(ctx);
-        ctx.map.fitTo(
-          [
-            [Math.min(...lons), Math.min(...lats)],
-            [Math.max(...lons), Math.max(...lats)],
-          ],
-          { padding: { ...pad, top: Math.max(pad.top, card.offsetTop + card.offsetHeight + 24) } },
-        );
+        const fitRoute = (): void => {
+          const pad = fitPadding(ctx);
+          const top = card ? Math.max(pad.top, card.offsetTop + card.offsetHeight + 24) : pad.top;
+          ctx.map.fitTo(
+            [
+              [Math.min(...lons), Math.min(...lats)],
+              [Math.max(...lons), Math.max(...lats)],
+            ],
+            { padding: { ...pad, top } },
+          );
+        };
+        fitRoute();
+        // 안내 문구 줄 수가 바뀌어 카드 높이가 달라지면, 아직 위치를 못 받은 동안만 다시 맞춘다.
+        cardWatch?.disconnect();
+        cardWatch = null;
+        if (typeof ResizeObserver !== "undefined") {
+          let lastH = card.offsetHeight;
+          cardWatch = new ResizeObserver(() => {
+            const h = card?.offsetHeight ?? 0;
+            if (h === lastH) return;
+            lastH = h;
+            if (!hasPosition) fitRoute();
+          });
+          cardWatch.observe(card);
+        }
         const controls = el("div", { class: "nav-controls" });
         const end = el("a", { class: "btn btn-quiet nav-end", href: `#/${cityId}/${course.index}` }, "길안내 끝내기");
         end.addEventListener("click", (e) => {
@@ -197,6 +218,7 @@ export function navView(cityId: string, courseIndex: number): View {
         let source: NavSource = typeof navigator !== "undefined" && navigator.geolocation ? "gps" : "sim";
         let speed: 1 | 4 = 1;
         let paused = false;
+        let hasPosition = false;
         let lastAlong = 0;
         let lastText = "";
         let lastWarn = "";
@@ -210,6 +232,7 @@ export function navView(cityId: string, courseIndex: number): View {
         };
 
         const onUpdate = (u: NavUpdate): void => {
+          hasPosition = true;
           lastAlong = u.progress.alongM;
           const { done, rest } = splitAt(coords, cum, u.progress.alongM);
           showRoutes(ctx.map, null, rest);
@@ -299,7 +322,7 @@ export function navView(cityId: string, courseIndex: number): View {
             const speedBtn = el("button", { type: "button", class: "pill nav-speed" }, `${speed}×`);
             const syncSpeed = () => {
               speedBtn.textContent = `${speed}×`;
-              speedBtn.setAttribute("aria-label", `가상 위치 속도 ${speed}배, 누르면 ${speed === 1 ? 4 : 1}배`);
+              speedBtn.setAttribute("aria-label", `속도 ${speed}×, 누르면 ${speed === 1 ? 4 : 1}×`);
             };
             syncSpeed();
             speedBtn.addEventListener("click", () => {
@@ -328,11 +351,14 @@ export function navView(cityId: string, courseIndex: number): View {
     },
     unmount() {
       stopNav();
+      cardWatch?.disconnect();
+      cardWatch = null;
       inner?.unmount();
       inner = null;
       card?.remove();
       card = null;
       if (touchedMap && mapRef) {
+        setSegmentsOpacity(mapRef, 1);
         showUser(mapRef, null);
         showRouteProgress(mapRef, null);
         showRoutes(mapRef, null, null);

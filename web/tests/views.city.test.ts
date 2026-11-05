@@ -291,6 +291,33 @@ describe("city view on narrow and wide screens", () => {
     expect(body.hidden).toBe(true);
   });
 
+  it("re-renders the structure when the screen crosses the wide breakpoint", async () => {
+    let wide = false;
+    let listener: (() => void) | null = null;
+    window.matchMedia = ((q: string) => ({
+      get matches() {
+        return wide && q.includes("min-width: 1024px");
+      },
+      media: q,
+      addEventListener: (_: string, cb: () => void) => (listener = cb),
+      removeEventListener: () => {},
+    })) as unknown as typeof window.matchMedia;
+    vi.mocked(loadCourses).mockResolvedValue([course(0)]);
+    vi.mocked(loadSegments).mockReturnValue(new Promise(() => {}));
+    vi.mocked(loadPois).mockRejectedValue(new Error("x"));
+    const ctx = makeCtx();
+    await cityView("paris").mount(ctx);
+    await tick();
+    expect(ctx.sheet.el.querySelector(".disclosure")).not.toBeNull();
+    // 편의시설 오류는 접힌 영역 밖에 보인다
+    expect(ctx.sheet.el.querySelector(".disclosure .load-error .block-error")).toBeNull();
+    expect(ctx.sheet.el.querySelector(".load-error .block-error")).not.toBeNull();
+    wide = true;
+    listener!();
+    expect(ctx.sheet.el.querySelector(".disclosure")).toBeNull();
+    expect(ctx.sheet.el.querySelector(".city.is-narrow")).toBeNull();
+  });
+
   it("wide: metrics stay open above the course list with no disclosure", async () => {
     stubWide(true);
     vi.mocked(loadCourses).mockResolvedValue([course(0)]);
@@ -337,9 +364,8 @@ describe("home summary", () => {
     a.metrics.network_km = 500.4;
     b.metrics.network_km = 300.2;
     const s = homeStats([a, b]);
-    expect(s).toMatchObject({ countries: 2, cities: 2, courses: 3, meanScore: 85 });
+    expect(s).toMatchObject({ countries: 2, cities: 2, courses: 3 });
     expect(s.networkKm).toBeCloseTo(800.6, 6);
-    expect(homeStats([]).meanScore).toBeNull();
 
     const ctx = makeCtx();
     await homeView().mount(ctx);

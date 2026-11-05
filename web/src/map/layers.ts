@@ -142,6 +142,8 @@ export function showCityMarkers(m: AppMap, cities: CityEntry[], onSelect: (id: s
   for (const mk of s.cityMarkers) mk.remove();
   const sorted = [...cities].sort((a, b) => b.metrics.mean_score - a.metrics.mean_score);
   const labels: HTMLElement[] = [];
+  const shortTexts: string[] = [];
+  const fullTexts: string[] = [];
   const dotEls: HTMLElement[] = [];
   const byId = new Map<string, maplibregl.Marker>();
   for (const c of sorted) {
@@ -158,6 +160,8 @@ export function showCityMarkers(m: AppMap, cities: CityEntry[], onSelect: (id: s
     label.className = "city-label";
     label.setAttribute("aria-hidden", "true");
     label.textContent = `${c.name_ko} ${score}`;
+    fullTexts.push(label.textContent);
+    shortTexts.push(String(score));
     // 숨겨진 라벨이 클릭을 가로채지 않도록 버튼 자체는 클릭을 받지 않고, 점과 보이는 라벨만 받는다.
     btn.style.pointerEvents = "none";
     dot.style.pointerEvents = "auto";
@@ -178,14 +182,24 @@ export function showCityMarkers(m: AppMap, cities: CityEntry[], onSelect: (id: s
   // 점은 항상 보인다. 점수가 높은 도시부터 라벨을 남기되, 이미 남긴 라벨이나 다른 도시의 점을 가리면 점 왼쪽으로
   // 옮기고, 그래도 겹치면 숨긴다(라벨끼리만 비교하면 스위스 세 도시처럼 가까운 곳에서 라벨이 이웃 점을 덮는다).
   const declutter = () => {
-    for (const l of labels) {
-      l.style.display = "";
-      l.parentElement?.classList.remove("label-left");
+    for (let i = 0; i < labels.length; i++) {
+      labels[i].style.display = "";
+      labels[i].textContent = fullTexts[i];
+      labels[i].parentElement?.classList.remove("label-left");
     }
-    const side = pickLabels(
-      labels.map((l) => l.getBoundingClientRect()),
-      dotEls.map((d) => d.getBoundingClientRect()),
-    );
+    const measure = () =>
+      pickLabels(
+        labels.map((l) => l.getBoundingClientRect()),
+        dotEls.map((d) => d.getBoundingClientRect()),
+      );
+    let side = measure();
+    // 좁은 화면: 이름까지 넣을 자리가 없는 도시는 점수만 적은 짧은 라벨로 한 번 더 자리를 찾는다.
+    if (window.innerWidth <= 420 && side.some((v) => v === null)) {
+      side.forEach((v, i) => {
+        if (v === null) labels[i].textContent = shortTexts[i];
+      });
+      side = measure();
+    }
     labels.forEach((l, i) => {
       if (side[i] === null) l.style.display = "none";
       else l.parentElement?.classList.toggle("label-left", side[i] === "left");
@@ -538,7 +552,7 @@ function applyRoutes(m: AppMap, s: State): void {
   });
 }
 
-/** baseline: 내 조건 경로를 그릴 때 기본 접근성 경로를 얇은 회색 실선으로 함께 보여 준다. */
+/** baseline: 내 조건 경로를 그릴 때 기본 휠체어 경로를 얇은 회색 실선으로 함께 보여 준다. */
 export function showRoutes(
   m: AppMap,
   shortest: LngLat[] | null,

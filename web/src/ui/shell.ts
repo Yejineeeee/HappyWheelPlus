@@ -1,4 +1,5 @@
 import { icon } from "./icons";
+import { parseRoute } from "../router";
 
 /** 경로 표시 줄의 한 칸. 마지막 칸 뒤에도 "›"가 붙고 그 뒤에 제목이 온다. */
 export interface Crumb {
@@ -60,7 +61,7 @@ export function mountShell(root: HTMLElement): Shell {
 
   const links = NAV_LINKS.map(
     (l) =>
-      `<a class="header-link" href="${l.href}"><span class="label-long">${l.long}</span><span class="label-short" aria-hidden="true">${l.short}</span></a>`,
+      `<a class="header-link" href="${l.href}" aria-label="${l.long}"><span class="label-long">${l.long}</span><span class="label-short" aria-hidden="true">${l.short}</span></a>`,
   ).join("");
   root.innerHTML = `
     <header class="app-header">
@@ -77,6 +78,7 @@ export function mountShell(root: HTMLElement): Shell {
   const header = root.querySelector<HTMLElement>(".app-header")!;
   const body = root.querySelector<HTMLElement>(".app-body")!;
   const themeBtn = q<HTMLButtonElement>("theme");
+  const brand = header.querySelector<HTMLAnchorElement>("a.brand")!;
   const navLinks = [...header.querySelectorAll<HTMLAnchorElement>(".header-link")];
   const themeListeners: ((t: "light" | "dark") => void)[] = [];
 
@@ -90,11 +92,13 @@ export function mountShell(root: HTMLElement): Shell {
   syncThemeIcon();
 
   const syncNav = () => {
-    const hash = location.hash || "#/";
-    for (const a of navLinks) {
-      if (a.getAttribute("href") === hash) a.setAttribute("aria-current", "page");
+    const here = parseRoute(location.hash).name;
+    const mark = (a: Element, on: boolean) => {
+      if (on) a.setAttribute("aria-current", "page");
       else a.removeAttribute("aria-current");
-    }
+    };
+    for (const a of navLinks) mark(a, parseRoute(a.getAttribute("href")!).name === here);
+    mark(brand, here === "home");
   };
   syncNav();
   window.addEventListener("hashchange", syncNav);

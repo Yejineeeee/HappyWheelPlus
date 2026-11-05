@@ -109,7 +109,7 @@ function legend(): HTMLElement {
     el("p", { class: "legend-caption" }, "낮을수록 어렵고 높을수록 편해요"),
     bar,
     ticks,
-    el("ul", {}, swatch("swatch-blocked", "통과 불가"), swatch("swatch-unknown", "정보 없음")),
+    el("ul", {}, swatch("swatch-blocked", "지나갈 수 없는 길"), swatch("swatch-unknown", "정보 없음")),
   );
 }
 
@@ -138,6 +138,7 @@ export function disclosure(label: string, id: string, ...children: Node[]): HTML
 export function cityView(cityId: string): View {
   let inner: View | null = null;
   let overlay: LoadingOverlay | null = null;
+  let stopMq: (() => void) | null = null;
 
   const removeOverlay = () => {
     overlay?.remove();
@@ -182,25 +183,29 @@ export function cityView(cityId: string): View {
         for (const course of courses) cards.append(courseCard(city, course, ctx));
 
         const courseSection: Node[] = [el("h3", { class: "section-title" }, `코스 ${courses.length}개`), cards];
-        const settings: Node[] = [
-          metricsSection(city),
-          legend(),
-          el("h3", { class: "section-title" }, "편의시설"),
-          chips,
-          countList,
-          poiError,
-        ];
+        const settings: Node[] = [metricsSection(city), legend(), el("h3", { class: "section-title" }, "편의시설"), chips, countList];
         // 좁은 화면: 코스 카드를 맨 위에, 지표·범례·편의시설은 "지도 보기 설정" 접기 영역으로.
-        ctx.sheet.setContent(
+        // 편의시설 오류는 접힌 영역 밖(코스 목록 위)에 보인다. 화면 폭이 바뀌면 구조를 다시 짠다.
+        const build = (): HTMLElement =>
           isNarrow()
             ? el(
                 "div",
                 { class: "city is-narrow" },
+                poiError,
                 ...courseSection,
                 disclosure("지도 보기 설정", `city-settings-${city.id}`, ...settings),
               )
-            : el("div", { class: "city" }, ...settings, ...courseSection),
-        );
+            : el("div", { class: "city" }, ...settings, poiError, ...courseSection);
+        ctx.sheet.setContent(build());
+        const mq = window.matchMedia?.("(min-width: 1024px)");
+        if (mq) {
+          const onChange = (): void => {
+            if (ctx.signal.aborted) return;
+            ctx.sheet.setContent(build());
+          };
+          mq.addEventListener?.("change", onChange);
+          stopMq = () => mq.removeEventListener?.("change", onChange);
+        }
 
         const loadSeg = (): void => {
           if (overlay) overlay.loading();
@@ -265,6 +270,8 @@ export function cityView(cityId: string): View {
       await loadCourseList();
     },
     unmount() {
+      stopMq?.();
+      stopMq = null;
       removeOverlay();
       inner?.unmount();
       inner = null;

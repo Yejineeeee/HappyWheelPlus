@@ -108,9 +108,6 @@ button {
   background: var(--surface);
   color: var(--ink);
 }
-.icon-btn[hidden] {
-  display: none;
-}
 
 .app-body {
   position: relative;

@@ -45,7 +45,7 @@ export function badge(text: string, tone: "neutral" | "good" | "warn" | "field")
 export function loadingBlock(label: string): HTMLElement {
   return el(
     "div",
-    { class: "block block-loading", role: "status", "aria-busy": "true" },
+    { class: "block block-loading", role: "status" },
     el("span", { class: "spinner", "aria-hidden": "true" }),
     el("span", {}, label),
   );
@@ -53,8 +53,17 @@ export function loadingBlock(label: string): HTMLElement {
 
 export function errorBlock(message: string, onRetry: () => void): HTMLElement {
   const btn = el("button", { type: "button", class: "btn" }, "다시 시도");
-  btn.addEventListener("click", onRetry);
-  return el("div", { class: "block block-error", role: "alert" }, el("p", {}, message), btn);
+  const block = el("div", { class: "block block-error", role: "alert" }, el("p", {}, message), btn);
+  btn.addEventListener("click", () => {
+    const host = block.parentElement;
+    onRetry();
+    // 누른 버튼이 사라졌으면 포커스가 문서 맨 위로 날아가지 않게 새로 들어온 내용(없으면 그 자리)으로 옮긴다.
+    if (btn.isConnected || !host) return;
+    const target = (host.firstElementChild as HTMLElement | null) ?? host;
+    if (!target.hasAttribute("tabindex")) target.setAttribute("tabindex", "-1");
+    target.focus({ preventScroll: true });
+  });
+  return block;
 }
 
 export function notFoundBlock(): HTMLElement {

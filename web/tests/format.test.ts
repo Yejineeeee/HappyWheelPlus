@@ -25,6 +25,6 @@ describe("format", () => {
     expect(scoreLabel(79.9)).toBe("보통");
     expect(scoreLabel(55)).toBe("보통");
     expect(scoreLabel(54)).toBe("어려움");
-    expect(scoreLabel(null)).toBe("통과 불가");
+    expect(scoreLabel(null)).toBe("지나갈 수 없는 길");
   });
 });

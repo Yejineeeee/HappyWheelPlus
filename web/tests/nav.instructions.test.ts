@@ -56,7 +56,7 @@ describe("instructions", () => {
       { name: "광장", atM: 2 * q },
       { name: "호수", atM: cum[1] },
     ]);
-    expect(ins.filter((i) => i.text.includes("돌길 구간 시작"))).toHaveLength(1);
+    expect(ins.filter((i) => i.text.includes("돌길 시작"))).toHaveLength(1);
     expect(ins.filter((i) => i.text.includes("높은 연석 주의"))).toHaveLength(1);
     expect(ins.some((i) => i.text.includes("다리 구간"))).toBe(true);
     expect(ins.some((i) => i.text.includes("광장 도착"))).toBe(true);

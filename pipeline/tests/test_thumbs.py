@@ -99,6 +99,5 @@ def test_thumbs_cli_fails_when_the_thumbnail_is_too_big(tmp_path, monkeypatch):
     d.mkdir()
     (d / "segments.geojson").write_text(json.dumps(_fc()), encoding="utf-8")
     monkeypatch.setattr(thumbs, "MAX_BYTES", 10)
-    monkeypatch.setattr(thumbs.render_thumb, "__defaults__", (10,))
     assert main(["thumbs", "--out", str(tmp_path)]) == 1
     assert not (d / "thumb.webp").exists()

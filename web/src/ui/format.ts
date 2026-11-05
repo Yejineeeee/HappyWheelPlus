@@ -15,7 +15,7 @@ export function fmtDelta(m: number): string {
 }
 
 export function scoreLabel(s: number | null): string {
-  if (s === null) return "통과 불가";
+  if (s === null) return "지나갈 수 없는 길";
   if (s >= 80) return "좋음";
   if (s >= 55) return "보통";
   return "어려움";

@@ -22,7 +22,6 @@ export function loadingOverlay(container: HTMLElement, label: string): LoadingOv
 
   const showLoading = (): void => {
     box.classList.remove("is-error");
-    box.setAttribute("aria-busy", "true");
     box.replaceChildren();
     cancelAnimationFrame(frame);
     frame = requestAnimationFrame(() => {
@@ -42,9 +41,13 @@ export function loadingOverlay(container: HTMLElement, label: string): LoadingOv
       if (gone) return;
       cancelAnimationFrame(frame);
       box.classList.add("is-error");
-      box.removeAttribute("aria-busy");
       const retry = el("button", { type: "button", class: "btn" }, "다시 시도");
-      retry.addEventListener("click", onRetry);
+      retry.addEventListener("click", () => {
+        onRetry();
+        // 다시 시도 버튼이 사라지므로 포커스를 알림 상자로 옮긴다.
+        box.setAttribute("tabindex", "-1");
+        box.focus({ preventScroll: true });
+      });
       box.replaceChildren(el("span", { class: "map-overlay-text" }, message), retry);
     },
     remove() {
