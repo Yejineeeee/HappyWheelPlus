@@ -33,7 +33,7 @@
     <circle class="ic" cx="60" cy="44" r="4.5"/>
   </g>
   <text class="name" x="220" y="320">OpenStreetMap</text>
-  <text class="detail" x="220" y="355">보행망, 편의시설 태그</text>
+  <text class="detail" x="220" y="355">길, 편의시설이 담긴 공개 지도</text>
 
   <!-- Copernicus DEM: 산 + 등고선 -->
   <g transform="translate(460 165)">
@@ -43,7 +43,7 @@
     <path class="ic" d="M14 110 C30 104 44 114 60 110 C76 106 90 116 106 110"/>
   </g>
   <text class="name" x="520" y="320">Copernicus DEM</text>
-  <text class="detail" x="520" y="355">GLO-30 고도, 30 m 격자</text>
+  <text class="detail" x="520" y="355">위성으로 잰 땅의 높이</text>
 
   <!-- 탐방 현장 기록: 클립보드 -->
   <g transform="translate(768 162)">
@@ -52,7 +52,7 @@
     <path class="ic" d="M24 48 L31 55 L42 42 M52 50 L80 50 M24 78 L31 85 L42 72 M52 80 L80 80"/>
   </g>
   <text class="name" x="820" y="320">탐방 현장 기록</text>
-  <text class="detail" x="820" y="355">코스 15개, 현장 평가 10개</text>
+  <text class="detail" x="820" y="355">직접 다녀온 코스 15개</text>
 
   <!-- 출처 → 파이프라인 -->
   <path class="line" d="M220 380 L220 420 L820 420 L820 380"/>
@@ -63,17 +63,17 @@
 
   <rect class="box" x="300" y="560" width="440" height="104" rx="12"/>
   <text class="name" x="520" y="604">수집 / 지형 보정</text>
-  <text class="detail" x="520" y="640">OSMnx 보행망, 건물, 수목 높이 깎기</text>
+  <text class="detail" x="520" y="640">길 정보를 받고 높이 오차를 줄임</text>
   <path class="line" d="M520 664 L520 718" marker-end="url(#head)"/>
 
   <rect class="box" x="300" y="720" width="440" height="104" rx="12"/>
   <text class="name" x="520" y="764">구간 채점</text>
-  <text class="detail" x="520" y="800">경사, 노면, 연석, 정보 없음 감점</text>
+  <text class="detail" x="520" y="800">경사, 노면, 턱을 보고 길마다 점수</text>
   <path class="line" d="M520 824 L520 878" marker-end="url(#head)"/>
 
   <rect class="box" x="300" y="880" width="440" height="104" rx="12"/>
   <text class="name" x="520" y="924">경로 비교</text>
-  <text class="detail" x="520" y="960">NetworkX 최단 vs 휠체어 경로</text>
+  <text class="detail" x="520" y="960">가장 짧은 길과 휠체어로 편한 길</text>
 
   <text class="group" x="520" y="1050">① 분석 파이프라인 (Python)</text>
 
@@ -82,17 +82,17 @@
 
   <rect class="box" x="1260" y="560" width="440" height="104" rx="12"/>
   <text class="name" x="1480" y="604">다시 채점</text>
-  <text class="detail" x="1480" y="640">내 조건 가중치 → 구간 점수</text>
+  <text class="detail" x="1480" y="640">내가 고른 조건으로 점수 다시 계산</text>
   <path class="line" d="M1480 664 L1480 718" marker-end="url(#head)"/>
 
   <rect class="box" x="1260" y="720" width="440" height="104" rx="12"/>
   <text class="name" x="1480" y="764">경로 탐색</text>
-  <text class="detail" x="1480" y="800">다익스트라, 런던 약 20 ms</text>
+  <text class="detail" x="1480" y="800">조건에 맞는 길을 바로 찾음</text>
   <path class="line" d="M1480 824 L1480 878" marker-end="url(#head)"/>
 
   <rect class="box" x="1260" y="880" width="440" height="104" rx="12"/>
   <text class="name" x="1480" y="924">길안내</text>
-  <text class="detail" x="1480" y="960">GPS / 시뮬레이션 위치 맞춤</text>
+  <text class="detail" x="1480" y="960">내 위치를 따라가며 경로 안내</text>
 
   <text class="group" x="1480" y="1050">② 웹앱 (브라우저)</text>
 
@@ -104,7 +104,7 @@
     <ellipse class="ic" cx="70" cy="20" rx="70" ry="18" fill="#fff"/>
   </g>
   <text class="name" x="520" y="1335">정적 데이터</text>
-  <text class="detail" x="520" y="1370">도시 9개 GeoJSON | 버전 해시</text>
+  <text class="detail" x="520" y="1370">도시 9개의 분석 결과 파일</text>
 
   <!-- 불러오기: 정적 데이터 → 웹앱 -->
   <path class="line" d="M596 1216 L1000 1216 L1000 612 L1256 612" marker-end="url(#head)"/>
@@ -121,7 +121,7 @@
     <path class="ic" d="M104 150 L96 184 M136 150 L144 184 M78 186 L162 186"/>
   </g>
   <text class="name" x="1480" y="1395">HappyWheel+ 웹앱</text>
-  <text class="detail" x="1480" y="1430">TypeScript, MapLibre | GitHub Pages</text>
+  <text class="detail" x="1480" y="1430">지도에서 길을 비교하는 웹사이트</text>
 
   <!-- 사용자 -->
   <g transform="translate(1150 1170)">
@@ -135,7 +135,7 @@
   <!-- ===== AI 조건 해석 (선택 기능) ===== -->
   <path class="dash" d="M1480 1466 L1480 1632 L1072 1632" marker-start="url(#head)" marker-end="url(#head)"/>
   <text class="alabel" x="1276" y="1614">문장 → 가중치</text>
-  <text class="detail" x="1276" y="1668">경로는 항상 알고리즘이 계산</text>
+  <text class="detail" x="1276" y="1668">길 찾기는 AI가 아닌 알고리즘이 함</text>
 
   <!-- 서버 랙 -->
   <g transform="translate(935 1555)">
@@ -149,7 +149,7 @@
     <path class="ic" d="M30 132 L100 132"/>
   </g>
   <text class="name" x="1000" y="1760">AI 조건 해석 서버</text>
-  <text class="detail" x="1000" y="1795">Cloudflare Workers | 하루 한도</text>
+  <text class="detail" x="1000" y="1795">문장으로 쓴 조건을 숫자로 바꿈</text>
 
   <!-- 서버 → OpenAI -->
   <path class="line" d="M928 1632 L620 1632" marker-end="url(#head)"/>
@@ -159,6 +159,6 @@
     <path class="icf" d="M40 116 C14 116 2 98 2 82 C2 62 18 48 38 50 C42 24 64 6 92 6 C120 6 140 26 144 50 C164 48 178 64 178 84 C178 102 164 116 144 116 Z"/>
   </g>
   <text class="name" x="520" y="1760">OpenAI</text>
-  <text class="detail" x="520" y="1795">gpt-4o-mini</text>
+  <text class="detail" x="520" y="1795">문장 해석에 쓰는 언어 모델</text>
 
 </svg>
