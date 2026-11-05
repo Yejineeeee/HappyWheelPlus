@@ -11,7 +11,6 @@ export interface Progress {
 
 export const OFF_ROUTE_M = 40;
 const HINT_BEHIND_M = 25;
-const HINT_AHEAD_MIN_M = 80;
 const RAD = Math.PI / 180;
 
 export function cumulative(coords: LngLat[]): Float64Array {
@@ -25,73 +24,81 @@ interface Hit {
   off: number;
 }
 
-/** hint에 가까울수록 작다. 뒤쪽은 5 m 불리하게 본다(되돌아가는 구간에서 앞쪽을 우선). */
-function rank(along: number, hint: number): number {
-  return Math.abs(along - hint) + (along >= hint ? 0 : 2);
-}
+const RE = 6371008.8;
+const BACK_PENALTY = 1;
+// 이동 거리 항의 폭. 급커브에서는 경로상 이동 거리가 직선 거리보다 커지므로 정확도의 2배로 넉넉하게 둔다.
+const TAU_K = 2;
 
-function scan(
-  coords: LngLat[],
-  cum: Float64Array,
-  p: LngLat,
-  from: number,
-  to: number,
-  hint?: number,
-  tol = 0.5,
-  aheadM = Infinity,
-  behindM = HINT_BEHIND_M,
-): Hit {
+/** 전체 경로에서 거리만으로 가장 가까운 지점을 찾는다. */
+function scan(coords: LngLat[], cum: Float64Array, p: LngLat, from: number, to: number): Hit {
   const k = Math.cos(p[1] * RAD);
-  const R = 6371008.8;
-  const px = p[0] * RAD * R * k;
-  const py = p[1] * RAD * R;
-  const cands: Hit[] = [];
-  let fallback: Hit = { along: cum[from] ?? 0, off: Infinity };
+  const px = p[0] * RAD * RE * k;
+  const py = p[1] * RAD * RE;
   let best: Hit = { along: cum[from] ?? 0, off: Infinity };
   for (let i = from; i < to; i++) {
-    const ax = coords[i][0] * RAD * R * k;
-    const ay = coords[i][1] * RAD * R;
-    const bx = coords[i + 1][0] * RAD * R * k;
-    const by = coords[i + 1][1] * RAD * R;
-    const dx = bx - ax;
-    const dy = by - ay;
+    const ax = coords[i][0] * RAD * RE * k;
+    const ay = coords[i][1] * RAD * RE;
+    const dx = coords[i + 1][0] * RAD * RE * k - ax;
+    const dy = coords[i + 1][1] * RAD * RE - ay;
     const den = dx * dx + dy * dy;
     let t = den === 0 ? 0 : ((px - ax) * dx + (py - ay) * dy) / den;
     t = Math.min(1, Math.max(0, t));
     const off = Math.hypot(ax + t * dx - px, ay + t * dy - py);
-    const h = { along: cum[i] + t * (cum[i + 1] - cum[i]), off };
-    if (hint !== undefined) {
-      // 긴 구간이 창 밖까지 이어져도 창 밖 지점은 후보가 아니다.
-      if (h.along > hint + aheadM || h.along < hint - behindM) {
-        if (off < fallback.off) fallback = h;
-        continue;
-      }
-      cands.push(h);
-    }
-    if (off < best.off) best = h;
+    if (off < best.off) best = { along: cum[i] + t * (cum[i + 1] - cum[i]), off };
   }
-  if (hint === undefined) return best;
-  if (cands.length === 0) return fallback;
-  // 가장 가까운 후보를 따르되, 오차 범위 안에 떨어진 곳(왕복 경로의 되돌아오는 길 등)의 다른 후보가 있으면
-  // hint 앞쪽에서 가장 가까운 쪽을 쓴다. 오차 안에서 흔들리는 이웃 후보로는 옮기지 않아 위치가 한쪽으로 쏠리지 않는다.
-  let pick = best;
-  // 거리가 같은 후보(꼭짓점 근처 등)는 hint 앞쪽을 먼저 쓴다.
-  for (const c of cands) {
-    if (c.off <= best.off + 0.5 && rank(c.along, hint) < rank(pick.along, hint)) pick = c;
-  }
-  const sep = 2 * tol + 10;
-  for (const c of cands) {
-    if (c.off > best.off + tol || c.along < hint - behindM) continue;
-    if (Math.abs(c.along - pick.along) <= sep) continue;
-    if (rank(c.along, hint) < rank(pick.along, hint)) pick = c;
-  }
-  return pick;
+  return best;
 }
 
 /**
- * 경로 위 가장 가까운 지점을 찾는다.
- * hintAlongM이 있으면 (hint-(25 m+2×정확도) ~ hint+max(80 m, 4×정확도))만 본다. 왕복 경로에서 되돌아오는 길이 거꾸로 잡히지 않게 하려는 것이다.
- * 같은 거리의 후보가 여럿이면 hint 앞쪽에서 가장 가까운 것을 쓴다. 힌트 없이 부르면 전체를 본다(처음 위치, 경로 복귀).
+ * 직전 위치(prevAlong) 근처에서 이동 거리와 맞는 지점을 찾는다.
+ * 창 [prev-W, prev+W], W = 이동 거리 + 3×정확도 + 30 m 안의 구간마다 투영해 후보를 만들고,
+ * 점수 = (경로까지 거리/σ)² + ((|Δalong| − 이동 거리)/τ)² 가 가장 작은 후보를 쓴다(σ = max(정확도, 5), τ = 2×max(정확도, 10)).
+ */
+function matchStep(
+  coords: LngLat[],
+  cum: Float64Array,
+  p: LngLat,
+  prevAlong: number,
+  displacementM: number,
+  accuracyM: number,
+): Hit {
+  const total = cum[cum.length - 1];
+  const W = displacementM + 3 * accuracyM + 30;
+  const lo = Math.max(0, prevAlong - W);
+  const hi = Math.min(total, prevAlong + W);
+  const sigma = Math.max(accuracyM, 5);
+  const tau = TAU_K * Math.max(accuracyM, 10);
+  const k = Math.cos(p[1] * RAD);
+  const px = p[0] * RAD * RE * k;
+  const py = p[1] * RAD * RE;
+  let best: Hit = { along: Math.min(hi, Math.max(lo, prevAlong)), off: Infinity };
+  let bestScore = Infinity;
+  for (let i = 0; i + 1 < coords.length; i++) {
+    const len = cum[i + 1] - cum[i];
+    if (len <= 0 || cum[i + 1] < lo || cum[i] > hi) continue;
+    const ax = coords[i][0] * RAD * RE * k;
+    const ay = coords[i][1] * RAD * RE;
+    const dx = coords[i + 1][0] * RAD * RE * k - ax;
+    const dy = coords[i + 1][1] * RAD * RE - ay;
+    const den = dx * dx + dy * dy;
+    let t = den === 0 ? 0 : ((px - ax) * dx + (py - ay) * dy) / den;
+    t = Math.min(Math.min(1, (hi - cum[i]) / len), Math.max(Math.max(0, (lo - cum[i]) / len), t));
+    const off = Math.hypot(ax + t * dx - px, ay + t * dy - py);
+    const along = cum[i] + t * len;
+    // 이동 거리만으로는 앞뒤를 가를 수 없는 되돌이 구간에서는 가던 방향(앞쪽)을 택하도록 뒤쪽 후보에 작은 벌점을 준다.
+    const score = (off / sigma) ** 2 + ((Math.abs(along - prevAlong) - displacementM) / tau) ** 2 + (along < prevAlong ? BACK_PENALTY : 0);
+    if (score < bestScore) {
+      bestScore = score;
+      best = { along, off };
+    }
+  }
+  return best;
+}
+
+/**
+ * 경로 위 현재 위치를 찾는다.
+ * hintAlongM(직전 위치)이 없으면 전체에서 가장 가까운 지점을 쓴다(첫 위치, 경로 복귀).
+ * 있으면 직전 위치와 이동 거리(displacementM)에 맞는 지점을 찾아, 오차 때문에 왕복 경로의 반대편 길로 넘어가지 않게 한다.
  */
 export function locate(
   routeCoords: LngLat[],
@@ -100,23 +107,17 @@ export function locate(
   hintAlongM?: number,
   stopsAlongM?: number[],
   accuracyM = 0,
+  displacementM = 0,
 ): Progress {
   const total = cum.length > 0 ? cum[cum.length - 1] : 0;
   let hit: Hit = { along: 0, off: Infinity };
   if (routeCoords.length === 1) {
     hit = { along: 0, off: distM(p, routeCoords[0]) };
   } else if (routeCoords.length > 1) {
-    const n = routeCoords.length - 1;
-    if (hintAlongM !== undefined) {
-      let lo = 0;
-      const behind = HINT_BEHIND_M + 2 * accuracyM; // 위치 오차만큼 뒤쪽 여유를 더 둔다
-      while (lo < n && cum[lo + 1] < hintAlongM - behind) lo++;
-      let hi = lo;
-      const ahead = Math.max(HINT_AHEAD_MIN_M, 4 * accuracyM);
-      while (hi < n && cum[hi] <= hintAlongM + ahead) hi++;
-      hit = scan(routeCoords, cum, p, lo, Math.max(hi, lo + 1 > n ? n : lo + 1), hintAlongM, Math.max(0.5, accuracyM), ahead, behind);
-    }
-    else hit = scan(routeCoords, cum, p, 0, n);
+    hit =
+      hintAlongM === undefined
+        ? scan(routeCoords, cum, p, 0, routeCoords.length - 1)
+        : matchStep(routeCoords, cum, p, hintAlongM, displacementM, accuracyM);
   }
   const along = Math.min(total, Math.max(0, hit.along));
   let next = 0;
@@ -184,6 +185,6 @@ export function locateForward(coords: LngLat[], cum: Float64Array, p: LngLat, fr
   const n = coords.length - 1;
   let lo = 0;
   while (lo < n - 1 && cum[lo + 1] < fromAlongM - HINT_BEHIND_M) lo++;
-  const hit = scan(coords, cum, p, lo, n, undefined);
+  const hit = scan(coords, cum, p, lo, n);
   return Math.max(fromAlongM, hit.along);
 }

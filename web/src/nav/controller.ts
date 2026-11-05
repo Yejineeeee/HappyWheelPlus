@@ -1,3 +1,4 @@
+import { distM } from "../core/geo";
 import { buildInstructions, nextInstructionText, type Instruction } from "./instructions";
 import { cumulative, headingAt, locate, OFF_ROUTE_M, type Progress } from "./progress";
 import { startSimulation } from "./simulator";
@@ -49,6 +50,7 @@ export function startNav(opts: NavOptions): NavHandle {
       i.kind === "arrive" ? { ...i, text: "목적지 도착" } : i,
     );
   let hint: number | undefined;
+  let prevFix: LngLat | null = null;
   let stopped = false;
   let needSent = false;
 
@@ -56,21 +58,21 @@ export function startNav(opts: NavOptions): NavHandle {
   let offCount = 0;
   const handle = (pos: LngLat, heading: number | null, accuracy = 0): void => {
     if (stopped) return;
-    let recovered = false;
-    let progress = locate(coords, cum, pos, hint, opts.stopsAlongM, accuracy);
+    const disp = prevFix ? distM(prevFix, pos) : 0;
+    prevFix = pos;
+    // 직전 고정이 경로 밖이었다면 이동 거리 기준이 맞지 않으므로(순간 이동 포함) 전체에서 다시 찾는다.
+    const useHint = hint !== undefined && offCount === 0;
+    let progress = locate(coords, cum, pos, useHint ? hint : undefined, opts.stopsAlongM, accuracy, disp);
     let off = progress.offRouteM - accuracy > OFF_ROUTE_M;
     if (off) {
       offCount++;
-      if (offCount >= 2) {
-        // 연속으로 벗어나면 전체에서 다시 찾는다(경로로 돌아온 경우).
+      if (offCount >= 2 && useHint) {
         progress = locate(coords, cum, pos, undefined, opts.stopsAlongM);
-        recovered = true;
         off = progress.offRouteM - accuracy > OFF_ROUTE_M;
       }
     } else offCount = 0;
     if (!off) offCount = 0;
-    // 탐색 기준점은 뒤로 가지 않는다. 오차로 흔들려도 왕복 경로의 반대편 길로 넘어가지 않게 하려는 것이다.
-    hint = recovered || hint === undefined ? progress.alongM : Math.max(hint, progress.alongM);
+    hint = progress.alongM;
     opts.onUpdate({
       pos,
       progress,
