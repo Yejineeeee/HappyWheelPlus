@@ -168,6 +168,14 @@
 .conditions { margin-top: 12px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
 .conditions[hidden] { display: none; }
 .cond-hint, .cond-note { margin: 0 0 8px; color: var(--muted); font-size: 14px; }
+.cond-ai { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+.cond-ai label { font-weight: 600; }
+.cond-ai-text { width: 100%; box-sizing: border-box; padding: 8px; font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; resize: vertical; }
+.cond-ai-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.cond-ai-count { color: var(--muted); font-size: 14px; }
+.cond-ai .btn { min-height: 44px; }
+.cond-ai .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.cond-ai-result { margin: 0; font-size: 14px; }
 .cond-sliders { display: flex; flex-direction: column; gap: 4px; }
 .cond-row { display: grid; grid-template-columns: 1fr auto; align-items: center; column-gap: 8px; }
 .cond-row label { font-weight: 600; }

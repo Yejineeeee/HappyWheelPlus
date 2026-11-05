@@ -213,4 +213,62 @@ describe("conditions panel behaviour", () => {
     expect(rows[3][3]).toBe("0m");
     expect(rows[5][3]).toBe("−2점");
   });
+
+  describe("AI text box", () => {
+    afterEach(() => {
+      vi.unstubAllEnvs();
+      vi.unstubAllGlobals();
+    });
+    const aiBody = {
+      weights: { slope: 2, surface: 1, kerb: 1, uncertainty: 1 },
+      required_pois: ["toilet"],
+      explanation: "경사를 크게 피해요",
+    };
+
+    it("is hidden when no endpoint is configured", async () => {
+      vi.stubEnv("VITE_AI_ENDPOINT", "");
+      const { root } = await openPanel(makeCtx());
+      expect(root.querySelector(".cond-ai")).toBeNull();
+    });
+
+    it("applies weights and required facilities, then recomputes", async () => {
+      vi.stubEnv("VITE_AI_ENDPOINT", "https://ai.example.test");
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify(aiBody), { status: 200 })));
+      const { root } = await openPanel(makeCtx());
+      const ta = root.querySelector<HTMLTextAreaElement>(".cond-ai textarea")!;
+      const btn = root.querySelector<HTMLButtonElement>(".cond-ai button")!;
+      expect(btn.disabled).toBe(true);
+      ta.value = "언덕이 힘들어요";
+      ta.dispatchEvent(new Event("input", { bubbles: true }));
+      expect(btn.disabled).toBe(false);
+      expect(root.querySelector(".cond-ai-count")?.textContent).toBe("8/300");
+      vi.mocked(showRoutes).mockClear();
+      btn.click();
+      expect(btn.textContent).toBe("해석 중…");
+      await flush();
+      await flush();
+      vi.advanceTimersByTime(300);
+      const first = root.querySelector<HTMLInputElement>('.conditions input[type="range"]')!;
+      expect(Number(first.value)).toBe(2);
+      expect(root.querySelector<HTMLInputElement>("#cond-poi-toilet-" + reachableIdx)!.checked).toBe(true);
+      expect(root.querySelector(".cond-ai-result")?.textContent).toBe("AI 해석: 경사를 크게 피해요");
+      expect(customCalls().length).toBeGreaterThan(0);
+      expect(btn.textContent).toBe("AI로 조건 맞추기");
+    });
+
+    it("shows the rate limit message and leaves sliders untouched", async () => {
+      vi.stubEnv("VITE_AI_ENDPOINT", "https://ai.example.test");
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("{}", { status: 429 })));
+      const { root } = await openPanel(makeCtx());
+      const ta = root.querySelector<HTMLTextAreaElement>(".cond-ai textarea")!;
+      ta.value = "x";
+      ta.dispatchEvent(new Event("input", { bubbles: true }));
+      root.querySelector<HTMLButtonElement>(".cond-ai button")!.click();
+      await flush();
+      await flush();
+      expect(root.querySelector(".cond-ai-result")?.textContent).toBe("오늘 사용 한도를 다 썼어요. 슬라이더로 직접 조절해 보세요.");
+      const first = root.querySelector<HTMLInputElement>('.conditions input[type="range"]')!;
+      expect(Number(first.value)).toBe(idx.weights_default.slope);
+    });
+  });
 });

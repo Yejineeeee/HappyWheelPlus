@@ -8,6 +8,7 @@ import {
   type Conditions,
   type CustomResult,
 } from "../core/conditions";
+import { AI_MAX_CHARS, aiEnabled, requestWeights, type AiError } from "../ai/client";
 import { loadGraph, loadPois, loadSegments } from "../data/load";
 import type { CityEntry, Course, PoiKind, RouteMetrics, SegmentProps, Weights } from "../data/types";
 import { showRoutes, showSegments } from "../map/layers";
@@ -37,6 +38,14 @@ const SLIDERS: { key: keyof Weights; label: string }[] = [
   { key: "uncertainty", label: "불확실성" },
 ];
 const DEBOUNCE_MS = 250;
+const AI_ERROR_TEXT: Record<AiError, string> = {
+  disabled: "지금은 AI를 쓸 수 없어요. 슬라이더로 직접 조절해 보세요.",
+  network: "지금은 AI를 쓸 수 없어요. 슬라이더로 직접 조절해 보세요.",
+  bad_response: "지금은 AI를 쓸 수 없어요. 슬라이더로 직접 조절해 보세요.",
+  rate_limited: "오늘 사용 한도를 다 썼어요. 슬라이더로 직접 조절해 보세요.",
+  too_long: "300자 이내로 적어 주세요.",
+};
+const AI_BUTTON = "AI로 조건 맞추기";
 
 export function missingMessage(kind: PoiKind): string {
   return `경로 300m 안에 ${POI_SUBJECT[kind]} 없어요`;
@@ -197,7 +206,63 @@ export function conditionsPanel(opts: PanelOpts): ConditionsPanel {
     recompute();
   });
 
+  // ----- 문장으로 조건 입력 -----
+  let aiCtl: AbortController | null = null;
+  let aiBox: HTMLElement | null = null;
+  if (aiEnabled()) {
+    const taId = `cond-ai-text-${course.index}`;
+    const ta = el("textarea", { id: taId, class: "cond-ai-text", rows: "3", maxlength: String(AI_MAX_CHARS) });
+    const count = el("span", { class: "cond-ai-count", "aria-live": "off" }, `0/${AI_MAX_CHARS}`);
+    const aiBtn = el("button", { type: "button", class: "btn" }, AI_BUTTON);
+    const aiResult = el("p", { class: "cond-ai-result", role: "status", "aria-live": "polite" });
+    aiBtn.disabled = true;
+    const busy = (): boolean => aiCtl !== null;
+    const syncAi = (): void => {
+      count.textContent = `${ta.value.length}/${AI_MAX_CHARS}`;
+      aiBtn.disabled = busy() || ta.value.trim() === "";
+    };
+    ta.addEventListener("input", () => {
+      syncAi();
+      aiResult.textContent = ta.value.length >= AI_MAX_CHARS ? `${AI_MAX_CHARS}자까지 쓸 수 있어요.` : "";
+    });
+    aiBtn.addEventListener("click", () => {
+      const text = ta.value.trim();
+      if (!text) return;
+      aiCtl?.abort();
+      const mine = new AbortController();
+      aiCtl = mine;
+      aiBtn.textContent = "해석 중…";
+      aiBtn.disabled = true;
+      aiResult.textContent = "";
+      void requestWeights({ city: city.id, text }, mine.signal).then((r) => {
+        if (dead || aiCtl !== mine) return;
+        aiCtl = null;
+        aiBtn.textContent = AI_BUTTON;
+        syncAi();
+        if (!r.ok) {
+          aiResult.textContent = AI_ERROR_TEXT[r.error];
+          return;
+        }
+        cond.weights = { ...r.value.weights };
+        cond.requiredPois = POI_KINDS.filter((k) => r.value.required_pois.includes(k));
+        for (const sl of SLIDERS) syncSlider(sl.key);
+        for (const k of POI_KINDS) checks.get(k)!.checked = cond.requiredPois.includes(k);
+        aiResult.textContent = r.value.explanation ? `AI 해석: ${r.value.explanation}` : "AI 해석을 적용했어요";
+        schedule();
+      });
+    });
+    aiBox = el(
+      "div",
+      { class: "cond-ai" },
+      el("label", { for: taId }, "문장으로 조건 입력"),
+      ta,
+      el("div", { class: "cond-ai-foot" }, count, aiBtn),
+      aiResult,
+    );
+  }
+
   root.append(
+    ...(aiBox ? [aiBox] : []),
     el("p", { class: "cond-hint" }, "값이 클수록 그 요소를 더 피하는 길을 찾아요. 0은 무시, 2는 아주 중요해요."),
     sliderBox,
     fieldset,
@@ -322,6 +387,8 @@ export function conditionsPanel(opts: PanelOpts): ConditionsPanel {
     el: root,
     destroy() {
       dead = true;
+      aiCtl?.abort();
+      aiCtl = null;
       if (timer) clearTimeout(timer);
       timer = null;
       // 내 조건 점수로 칠한 히트맵이 남지 않게, 적용했던 경우에만 내보낸 점수로 되돌린다.
