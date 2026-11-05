@@ -171,17 +171,6 @@ class CopernicusDEM:
         return self._tiles[name]
 
     @staticmethod
-    def _clean(values: list[float], nodata: float | None = None) -> list[float | None]:
-        out: list[float | None] = []
-        for v in values:
-            v = float(v)
-            if math.isnan(v) or v < -1000 or (nodata is not None and v == nodata):
-                out.append(None)
-            else:
-                out.append(v)
-        return out
-
-    @staticmethod
     def _clean_array(arr, nodata):
         a = np.asarray(arr, dtype=float).copy()
         bad = ~np.isfinite(a) | (a < -1000)

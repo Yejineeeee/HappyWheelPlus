@@ -26,26 +26,40 @@ ELEV_CHUNK = 200_000
 _INCLINE_RE = re.compile(r"^\s*(-?\d+(?:\.\d+)?)\s*%?\s*$")
 
 
+SIMPLIFY_DIFFER = ["highway", "surface", "wheelchair", "ramp", "bridge", "tunnel"]
+SIMPLIFY_KEEP_NODES = ["kerb"]
+
+
+def simplify_walk(G_raw):
+    """Raw OSM graph -> simplified undirected walking graph.
+
+    Nodes carrying kerb=* are kept (they are where crossing kerb heights live), and
+    steps/bridges/ramps etc. are not merged into neighbouring footways."""
+    import osmnx as ox
+
+    G = ox.simplify_graph(G_raw, node_attrs_include=SIMPLIFY_KEEP_NODES,
+                          edge_attrs_differ=SIMPLIFY_DIFFER)
+    return ox.convert.to_undirected(G)
+
+
 def fetch_network(city: City, cache_dir: Path) -> nx.MultiGraph:
+    """Walking network for the city. The raw (unsimplified) graph is what gets cached, and it is
+    always read back from disk before simplifying so edge order (hence segment ids) is the same
+    on a fresh download and on a cache hit."""
     import osmnx as ox
 
     cache_dir = Path(cache_dir)
-    path = cache_dir / f"{city.id}_r{int(city.radius_m)}_walk_v2.graphml"
-    if path.exists():
-        return ox.load_graphml(path)
-    ox.settings.useful_tags_way = USEFUL_WAY_TAGS
-    ox.settings.useful_tags_node = USEFUL_NODE_TAGS
-    ox.settings.cache_folder = str(cache_dir / "osmnx")
-    lon, lat = city.center
-    G = ox.graph_from_point((lat, lon), dist=city.radius_m, network_type="walk",
-                            simplify=False, retain_all=False)
-    # keep steps/bridges/ramps etc. from being merged into neighbouring footways
-    G = ox.simplify_graph(G, edge_attrs_differ=[
-        "highway", "surface", "wheelchair", "ramp", "bridge", "tunnel"])
-    G = ox.convert.to_undirected(G)
-    cache_dir.mkdir(parents=True, exist_ok=True)
-    ox.save_graphml(G, path)
-    return G
+    path = cache_dir / f"{city.id}_r{int(city.radius_m)}_walk_raw.graphml"
+    if not path.exists():
+        ox.settings.useful_tags_way = USEFUL_WAY_TAGS
+        ox.settings.useful_tags_node = USEFUL_NODE_TAGS
+        ox.settings.cache_folder = str(cache_dir / "osmnx")
+        lon, lat = city.center
+        raw = ox.graph_from_point((lat, lon), dist=city.radius_m, network_type="walk",
+                                  simplify=False, retain_all=False)
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        ox.save_graphml(raw, path)
+    return simplify_walk(ox.load_graphml(path))
 
 
 def _norm(value):

@@ -7,7 +7,7 @@ from fixtures import GRID_STEP_M, Plane, make_route_graph, node_lonlat
 
 from happywheel.geo import GEOD, to_local_xy
 from happywheel.network import annotate
-from happywheel.routing import ALPHA, nearest_node, route, route_metrics, snap_nodes
+from happywheel.routing import ALPHA, route, route_metrics, snap_nodes
 
 
 @pytest.fixture
@@ -25,11 +25,11 @@ def test_alpha():
     assert ALPHA == 3.0
 
 
-def test_nearest_node(env):
+def test_snap_nodes_nearest(env):
     G, A, C, D = env
     lon, lat, _ = GEOD.fwd(A[0], A[1], 45, 10)
-    assert nearest_node(G, lon, lat) == 6
-    assert nearest_node(G, *C) == 8
+    nodes, dists = snap_nodes(G, [(lon, lat), C])
+    assert nodes == [6, 8] and dists[0] == pytest.approx(10, abs=0.5) and dists[1] < 0.5
 
 
 def test_shortest_uses_steps(env):

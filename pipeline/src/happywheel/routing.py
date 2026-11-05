@@ -23,15 +23,6 @@ class RouteResult:
     snap_m: list[float] = field(default_factory=list)  # stop -> snapped node, metres
 
 
-def nearest_node(G: nx.MultiGraph, lon: float, lat: float) -> int:
-    ids = list(G.nodes)
-    pts = np.array([(G.nodes[n]["x"], G.nodes[n]["y"]) for n in ids], dtype=float)
-    xy = to_local_xy(pts, lat)
-    p = to_local_xy([(lon, lat)], lat)[0]
-    d2 = ((xy - p) ** 2).sum(axis=1)
-    return ids[int(np.argmin(d2))]
-
-
 def main_component_nodes(G: nx.MultiGraph) -> list[int]:
     """Nodes of the largest connected component of the non-blocked edges
     (falls back to every node when no edge is passable)."""
@@ -82,7 +73,7 @@ def _best_key(keydict: dict, mode: str) -> tuple[int, float] | None:
     return best
 
 
-def _oriented_coords(G, u, d) -> list[tuple[float, float]]:
+def oriented_coords(G, u, d) -> list[tuple[float, float]]:
     coords = list(d["coords"])
     ux, uy = G.nodes[u]["x"], G.nodes[u]["y"]
     d_first = (coords[0][0] - ux) ** 2 + (coords[0][1] - uy) ** 2
@@ -112,7 +103,7 @@ def route(G: nx.MultiGraph, stops: list[tuple[float, float]],
         for u, v in zip(path, path[1:]):
             key = _best_key(G[u][v], mode)[0]
             res.edges.append((u, v, key))
-            res.coords.extend(_oriented_coords(G, u, G[u][v][key])[1:])
+            res.coords.extend(oriented_coords(G, u, G[u][v][key])[1:])
     return res
 
 

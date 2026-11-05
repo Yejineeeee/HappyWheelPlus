@@ -83,14 +83,22 @@ def _parse_city(raw: dict) -> City:
     lon = sum(s.lon for s in stops) / len(stops)
     lat = sum(s.lat for s in stops) / len(stops)
     far = max(_GEOD.inv(lon, lat, s.lon, s.lat)[2] for s in stops)
+    floor = far + RADIUS_MARGIN_M
+    if raw.get("radius_m") is not None:
+        radius = float(raw["radius_m"])
+        if radius < floor:
+            raise ValueError(
+                f"{raw['id']}: radius_m {radius:g} is below farthest stop + "
+                f"{RADIUS_MARGIN_M:g} m = {floor:.0f} m")
+    else:
+        radius = max(MIN_RADIUS_M, floor)
     return City(
         id=raw["id"],
         name_ko=raw["name_ko"],
         country_ko=raw["country_ko"],
         courses=courses,
         center=(lon, lat),
-        radius_m=float(raw["radius_m"]) if raw.get("radius_m") is not None
-        else max(MIN_RADIUS_M, far + RADIUS_MARGIN_M),
+        radius_m=radius,
     )
 
 

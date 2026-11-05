@@ -102,3 +102,16 @@ def make_route_graph() -> tuple[nx.MultiGraph, dict]:
 
 def node_lonlat(G: nx.MultiGraph, n: int) -> tuple[float, float]:
     return (G.nodes[n]["x"], G.nodes[n]["y"])
+
+
+def make_raw_chain(kerb_node: int | None = 1) -> nx.MultiDiGraph:
+    """Raw (unsimplified, directed) OSM-like footway 0-1-2-3 in a straight line near Paris.
+    Interior nodes 1 and 2 have degree 2; `kerb_node` (if any) carries kerb=raised."""
+    G = nx.MultiDiGraph(crs="epsg:4326")
+    for i in range(4):
+        lon, lat, _ = GEOD.fwd(GRID_LON0, GRID_LAT0, 90, i * 40.0)
+        G.add_node(i, x=lon, y=lat, **({"kerb": "raised"} if i == kerb_node else {}))
+    for a, b in ((0, 1), (1, 2), (2, 3)):
+        for u, v in ((a, b), (b, a)):
+            G.add_edge(u, v, length=40.0, highway="footway", oneway=False)
+    return G

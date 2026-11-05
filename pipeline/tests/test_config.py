@@ -70,3 +70,16 @@ def test_radius_override_used(tmp_path):
 
 def test_radius_default_without_override(tmp_path):
     assert load_cities(_one_city_yaml(tmp_path))[0].radius_m == 3000.0
+
+
+def test_radius_override_below_floor_rejected(tmp_path):
+    raw = {"id": "tiny", "name_ko": "t", "country_ko": "c", "radius_m": 1000,
+           "courses": [{"name": "c", "time_label": "~10분", "stops": [
+               {"name": "a", "lon": 1.0, "lat": 2.0}, {"name": "b", "lon": 1.0, "lat": 2.02}]}]}
+    p = tmp_path / "t.yaml"
+    p.write_text(yaml.safe_dump([raw], allow_unicode=True), encoding="utf-8")
+    with pytest.raises(ValueError, match="tiny"):  # farthest stop ~1112 m from centre
+        load_cities(p)
+    raw["radius_m"] = 1700
+    p.write_text(yaml.safe_dump([raw], allow_unicode=True), encoding="utf-8")
+    assert load_cities(p)[0].radius_m == 1700.0

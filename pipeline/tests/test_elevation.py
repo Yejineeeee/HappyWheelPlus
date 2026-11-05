@@ -48,8 +48,10 @@ def test_short_edge_grade_is_damped():
 
 
 def test_nodata_becomes_none():
-    assert CopernicusDEM._clean([-32767.0, float("nan"), 12.0]) == [None, None, 12.0]
-    assert CopernicusDEM._clean([-9999.0, 5.0], nodata=-9999.0) == [None, 5.0]
+    a = CopernicusDEM._clean_array([-32767.0, float("nan"), 12.0], None)
+    assert np.isnan(a[:2]).all() and a[2] == 12.0
+    b = CopernicusDEM._clean_array([-9999.0, 5.0], -9999.0)
+    assert np.isnan(b[0]) and b[1] == 5.0
 
 
 def test_all_none_returns_none():
