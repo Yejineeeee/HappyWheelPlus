@@ -9,6 +9,8 @@ export interface AppMap {
   fitTo(bounds: [[number, number], [number, number]], opts?: { animate?: boolean }): void;
   /** 스타일이 (다시) 로드될 때마다 호출되는 콜백 등록. 앱 레이어 복원에 쓴다. */
   onStyleLoad(cb: () => void): void;
+  /** 스타일이 로드되어 소스·레이어를 추가할 수 있는 상태인지. */
+  isReady(): boolean;
 }
 
 export function prefersReducedMotion(): boolean {
@@ -47,7 +49,7 @@ export function createMap(container: HTMLElement, theme: "light" | "dark"): AppM
   map.on("error", () => {
     if (styleLoaded || fellBack || currentTheme !== "dark") return;
     fellBack = true;
-    map.setStyle(mapStyleUrl("light"));
+    map.setStyle(mapStyleUrl("light"), { diff: false });
   });
 
   return {
@@ -58,7 +60,7 @@ export function createMap(container: HTMLElement, theme: "light" | "dark"): AppM
       currentTheme = t;
       fellBack = false;
       styleLoaded = false;
-      map.setStyle(mapStyleUrl(t));
+      map.setStyle(mapStyleUrl(t), { diff: false });
     },
     fitTo(bounds, opts) {
       const animate = prefersReducedMotion() ? false : (opts?.animate ?? true);
@@ -66,6 +68,9 @@ export function createMap(container: HTMLElement, theme: "light" | "dark"): AppM
     },
     onStyleLoad(cb) {
       listeners.push(cb);
+    },
+    isReady() {
+      return styleLoaded;
     },
   };
 }

@@ -3,7 +3,9 @@ import { SCORE_STOPS, mapStyleUrl, scoreColorExpression } from "../src/map/style
 
 describe("map style helpers", () => {
   it("scoreColorExpression uses token stops in order", () => {
-    const expr = scoreColorExpression() as unknown[];
+    const outer = scoreColorExpression("#123456") as unknown[];
+    expect(outer.slice(0, 3)).toEqual(["case", ["<", ["get", "s"], 0], "#123456"]);
+    const expr = outer[3] as unknown[];
     expect(expr.slice(0, 3)).toEqual(["interpolate", ["linear"], ["get", "s"]]);
     const flat = expr.slice(3);
     expect(flat).toEqual(SCORE_STOPS.flatMap(([v, c]) => [v, c]));

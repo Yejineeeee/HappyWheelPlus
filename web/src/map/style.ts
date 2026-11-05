@@ -9,12 +9,18 @@ export const SCORE_STOPS: [number, string][] = [
   [100, "#7ad151"],
 ];
 
-export function scoreColorExpression(): ExpressionSpecification {
+/** s < 0(점수 없음)이면 neutral 색, 아니면 점수 보간. */
+export function scoreColorExpression(neutral = "#6b7280"): ExpressionSpecification {
   return [
-    "interpolate",
-    ["linear"],
-    ["get", "s"],
-    ...SCORE_STOPS.flatMap(([v, c]) => [v, c]),
+    "case",
+    ["<", ["get", "s"], 0],
+    neutral,
+    [
+      "interpolate",
+      ["linear"],
+      ["get", "s"],
+      ...SCORE_STOPS.flatMap(([v, c]) => [v, c]),
+    ],
   ] as ExpressionSpecification;
 }
 
