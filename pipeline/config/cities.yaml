@@ -1,0 +1,130 @@
+- id: london
+  name_ko: 런던
+  country_ko: 영국
+  courses:
+    - name: "사우스뱅크 무계단 루프"
+      time_label: "~90분"
+      stops:
+        - {name: "타워 브리지", lon: -0.0754, lat: 51.5055}
+        - {name: "버러 마켓", lon: -0.091, lat: 51.505}
+        - {name: "테이트 모던", lon: -0.097, lat: 51.507}
+        - {name: "세인트 폴 대성당", lon: -0.0984, lat: 51.5138}
+      field: {difficulty: 3, stars: 3, note: "관광객이 많아 휠체어로 이동하기 쉽지 않았고, 계단이 있어 가까이 가기 어려운 곳이 있었다."}
+    - name: "웨스트민스터–세인트 제임스–트라팔가"
+      time_label: "~80분"
+      stops:
+        - {name: "웨스트민스터 브리지", lon: -0.123, lat: 51.5}
+        - {name: "세인트 제임스 파크", lon: -0.134, lat: 51.504}
+        - {name: "트라팔가 광장", lon: -0.128, lat: 51.507}
+      field: {difficulty: 2, stars: 4, note: "사원 내부는 어렵지 않았지만 외부에 횡단보도가 많아 길을 건너기 힘들었다."}
+- id: paris
+  name_ko: 파리
+  country_ko: 프랑스
+  courses:
+    - name: "루브르–뛸르리–오랑주리"
+      time_label: "~60분"
+      stops:
+        - {name: "루브르 박물관", lon: 2.335, lat: 48.861}
+        - {name: "뛸르리 정원", lon: 2.327, lat: 48.862}
+        - {name: "오랑주리 미술관", lon: 2.321, lat: 48.864}
+      field: {difficulty: 4, stars: 2, note: "박물관 내부 인파가 많아 휠체어로는 원하는 작품을 관람하기 어려웠다."}
+    - name: "노트르담–시테섬–퐁네프"
+      time_label: "~75분"
+      stops:
+        - {name: "노트르담 대성당", lon: 2.3499, lat: 48.853}
+        - {name: "시테섬 북단 산책로", lon: 2.341, lat: 48.857}
+        - {name: "퐁네프", lon: 2.339, lat: 48.8577}
+      field: {difficulty: 2, stars: 5, note: "계단이 없어 관광하기 쉬웠고, 센 강 주변에서 휠체어 여행자를 많이 볼 수 있었다."}
+- id: lucerne
+  name_ko: 루체른
+  country_ko: 스위스
+  courses:
+    - name: "호반–카펠교–중앙역"
+      time_label: "~45분"
+      stops:
+        - {name: "루체른 호반", lon: 8.31, lat: 47.051}
+        - {name: "카펠교", lon: 8.307, lat: 47.052}
+        - {name: "루체른 중앙역", lon: 8.308, lat: 47.05}
+      field: {difficulty: 1, stars: 5, note: "이동 거리가 짧고 동선이 단순하며, 카펠교 계단과 역에 리프트가 있어 혼자서도 이동할 수 있다."}
+- id: bern
+  name_ko: 베른
+  country_ko: 스위스
+  courses:
+    - name: "아르강 전망–분수–연방의사당"
+      time_label: "~50분"
+      stops:
+        - {name: "뮌스터 테라스", lon: 7.451, lat: 46.948}
+        - {name: "분수/아케이드", lon: 7.447, lat: 46.948}
+        - {name: "연방의사당 전망", lon: 7.445, lat: 46.947}
+      field: {difficulty: 1, stars: 5, note: "보행로가 넓고 단차가 거의 없어 자연스럽게 이동할 수 있었다."}
+- id: interlaken
+  name_ko: 인터라켄
+  country_ko: 스위스
+  courses:
+    - name: "회퍼브루케–호헤마트 공원"
+      time_label: "~50분"
+      stops:
+        - {name: "호헤마트 공원", lon: 7.862, lat: 46.686}
+        - {name: "아레강 다리(회퍼브루케)", lon: 7.856, lat: 46.686}
+- id: milan
+  name_ko: 밀라노
+  country_ko: 이탈리아
+  courses:
+    - name: "두오모–갤러리아"
+      time_label: "~40분"
+      stops:
+        - {name: "두오모 대성당", lon: 9.191, lat: 45.464}
+        - {name: "비토리오 에마누엘레 2세 갤러리아", lon: 9.189, lat: 45.466}
+      field: {difficulty: 3, stars: 2, note: "도심 이동은 쉬웠지만 대성당이 계단 위주이고, 지도의 휠체어 입구 정보가 현장과 달랐다."}
+    - name: "스포르체스코 성–브레라"
+      time_label: "~70분"
+      stops:
+        - {name: "스포르체스코 성", lon: 9.179, lat: 45.47}
+        - {name: "브레라 지구", lon: 9.187, lat: 45.472}
+- id: venice
+  name_ko: 베네치아
+  country_ko: 이탈리아
+  courses:
+    - name: "두칼레–산 마르코"
+      time_label: "~45분"
+      stops:
+        - {name: "두칼레 궁전", lon: 12.339, lat: 45.434}
+        - {name: "산 마르코 대성당", lon: 12.338, lat: 45.434}
+      field: {difficulty: 3, stars: 3, note: "이동 대부분이 수상버스에 의존하고 정류장마다 단차가 달라 사전 계획이 필요하다."}
+    - name: "리알토–산 폴로"
+      time_label: "~60분"
+      stops:
+        - {name: "리알토 다리", lon: 12.335, lat: 45.438}
+        - {name: "산 폴로", lon: 12.333, lat: 45.437}
+- id: florence
+  name_ko: 피렌체
+  country_ko: 이탈리아
+  courses:
+    - name: "두오모–시뇨리아"
+      time_label: "~60분"
+      stops:
+        - {name: "두오모", lon: 11.257, lat: 43.773}
+        - {name: "공화국 광장", lon: 11.254, lat: 43.771}
+        - {name: "시뇨리아 광장", lon: 11.255, lat: 43.769}
+    - name: "우피치–베키오 다리–피티궁"
+      time_label: "~75분"
+      stops:
+        - {name: "우피치 미술관", lon: 11.255, lat: 43.768}
+        - {name: "베키오 다리", lon: 11.253, lat: 43.767}
+        - {name: "피티 궁전", lon: 11.25, lat: 43.765}
+      field: {difficulty: 2, stars: 5, note: "베키오 다리는 계단 없는 일자형이고, 차량 통행 제한(ZTL)으로 비교적 안전했다."}
+- id: rome
+  name_ko: 로마
+  country_ko: 이탈리아
+  courses:
+    - name: "나보나–판테온"
+      time_label: "~60분"
+      stops:
+        - {name: "나보나 광장", lon: 12.473, lat: 41.9}
+        - {name: "판테온", lon: 12.476, lat: 41.899}
+    - name: "포로 로마노 주변 산책"
+      time_label: "~80분"
+      stops:
+        - {name: "포로 로마노 동쪽 입구", lon: 12.484, lat: 41.892}
+        - {name: "콜로세움 북측", lon: 12.492, lat: 41.89}
+      field: {difficulty: 5, stars: 1, note: "유적지 특성상 돌길과 노면 때문에 이동 부담이 크고 혼자 이동하기 어려웠다."}
