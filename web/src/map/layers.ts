@@ -14,6 +14,7 @@ interface State {
   visible: Record<PoiKind, boolean> | null;
   routes: { shortest: LngLat[] | null; accessible: LngLat[] | null } | null;
   cityMarkers: maplibregl.Marker[];
+  cityDeclutter: (() => void) | null;
   stopMarkers: maplibregl.Marker[];
   userMarker: maplibregl.Marker | null;
   poiHandlersBound: boolean;
@@ -35,6 +36,7 @@ function getState(m: AppMap): State {
       visible: null,
       routes: null,
       cityMarkers: [],
+      cityDeclutter: null,
       stopMarkers: [],
       userMarker: null,
       poiHandlersBound: false,
@@ -67,7 +69,9 @@ function setSource(map: maplibregl.Map, id: string, data: GeoJSON.GeoJSON): void
 const LAYER_ORDER = [
   "segments-scored",
   "segments-blocked",
+  "pois-hit-minor",
   "pois-hit",
+  "pois-minor",
   "pois",
   "route-short",
   "route-casing",
@@ -77,7 +81,11 @@ const LAYER_ORDER = [
 /** LAYER_ORDER 순서(아래→위)가 유지되도록, 이미 있는 더 위 레이어 바로 앞에 끼워 넣는다. */
 function addOrdered(map: maplibregl.Map, layer: maplibregl.LayerSpecification): void {
   const i = LAYER_ORDER.indexOf(layer.id);
-  const before = LAYER_ORDER.slice(i + 1).find((id) => map.getLayer(id));
+  let before = LAYER_ORDER.slice(i + 1).find((id) => map.getLayer(id));
+  // 구간 히트맵은 기본 지도의 글자(지명·도로명) 아래에 둔다.
+  if (!before && layer.id.startsWith("segments-")) {
+    before = map.getStyle().layers.find((l) => l.type === "symbol" && !LAYER_ORDER.includes(l.id))?.id;
+  }
   map.addLayer(layer, before);
 }
 
@@ -88,24 +96,59 @@ function removeLayers(map: maplibregl.Map, layers: string[], sources: string[]):
 
 // ---------- 도시 마커 ----------
 
+function stopDeclutter(m: AppMap, s: State): void {
+  if (s.cityDeclutter) m.map.off("moveend", s.cityDeclutter);
+  s.cityDeclutter = null;
+}
+
 export function showCityMarkers(m: AppMap, cities: CityEntry[], onSelect: (id: string) => void): void {
   const s = getState(m);
+  stopDeclutter(m, s);
   for (const mk of s.cityMarkers) mk.remove();
-  s.cityMarkers = cities.map((c) => {
+  const sorted = [...cities].sort((a, b) => b.metrics.mean_score - a.metrics.mean_score);
+  const labels: HTMLElement[] = [];
+  const byId = new Map<string, maplibregl.Marker>();
+  for (const c of sorted) {
     const score = Math.round(c.metrics.mean_score);
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "city-marker";
-    btn.textContent = `${c.name_ko} ${score}`;
-    // 어두운 구간(0~55)은 흰 글자, 밝은 구간은 검은 글자
-    const text = c.metrics.mean_score < 60 ? "#ffffff" : "#000000";
-    btn.style.cssText =
-      `background:${scoreColor(c.metrics.mean_score)};color:${text};` +
-      "border:2px solid #fff;border-radius:22px;min-height:44px;min-width:44px;padding:0 14px;" +
-      "font:600 14px/1 var(--font);cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.35);font-variant-numeric:tabular-nums;";
+    btn.setAttribute("aria-label", `${c.name_ko} ${score}점`);
+    const dot = document.createElement("span");
+    dot.className = "city-dot";
+    dot.setAttribute("aria-hidden", "true");
+    dot.style.background = scoreColor(c.metrics.mean_score);
+    const label = document.createElement("span");
+    label.className = "city-label";
+    label.setAttribute("aria-hidden", "true");
+    label.textContent = `${c.name_ko} ${score}`;
+    btn.append(dot, label);
+    labels.push(label);
     btn.addEventListener("click", () => onSelect(c.id));
-    return new maplibregl.Marker({ element: btn }).setLngLat(c.center).addTo(m.map);
-  });
+    // 점 중심이 도시 좌표에 오도록 왼쪽 기준으로 놓는다(왼쪽 여백 14 + 점 반지름 8).
+    byId.set(
+      c.id,
+      new maplibregl.Marker({ element: btn, anchor: "left", offset: [-22, 0] }).setLngLat(c.center).addTo(m.map),
+    );
+  }
+  s.cityMarkers = [...byId.values()];
+
+  // 점수가 높은 도시부터 라벨을 남기고, 먼저 남긴 라벨과 겹치는 라벨은 숨긴다. 점은 항상 보인다.
+  const declutter = () => {
+    for (const l of labels) l.style.visibility = "";
+    const kept: DOMRect[] = [];
+    for (const l of labels) {
+      const r = l.getBoundingClientRect();
+      if (kept.some((k) => r.left < k.right && r.right > k.left && r.top < k.bottom && r.bottom > k.top)) {
+        l.style.visibility = "hidden";
+      } else {
+        kept.push(r);
+      }
+    }
+  };
+  s.cityDeclutter = declutter;
+  m.map.on("moveend", declutter);
+  requestAnimationFrame(declutter);
 }
 
 // ---------- 구간 히트맵 ----------
@@ -220,8 +263,24 @@ function loadIcons(): Promise<Record<PoiKind, ImageData>> {
   return iconPromise;
 }
 
-function visibleKinds(s: State): PoiKind[] {
-  return POI_KINDS.filter((k) => (s.visible ? s.visible[k] : true));
+/** 자주 쓰는 종류는 14 이상, 많은 벤치·음수대는 15 이상에서만 보인다. 겹치는 아이콘은 숨긴다. */
+const POI_GROUPS: { suffix: string; kinds: PoiKind[]; minzoom: number }[] = [
+  { suffix: "", kinds: ["toilet", "elevator"], minzoom: 14 },
+  { suffix: "-minor", kinds: ["bench", "fountain"], minzoom: 15 },
+];
+
+function groupFilter(s: State, kinds: PoiKind[]): maplibregl.FilterSpecification {
+  const on = kinds.filter((k) => (s.visible ? s.visible[k] : true));
+  return ["in", ["get", "kind"], ["literal", on]];
+}
+
+function applyPoiFilters(m: AppMap, s: State): void {
+  const map = m.map;
+  for (const g of POI_GROUPS) {
+    const f = groupFilter(s, g.kinds);
+    for (const id of [`pois${g.suffix}`, `pois-hit${g.suffix}`]) if (map.getLayer(id)) map.setFilter(id, f);
+  }
+  map.triggerRepaint();
 }
 
 function applyPois(m: AppMap, s: State): void {
@@ -235,30 +294,35 @@ function applyPois(m: AppMap, s: State): void {
       if (!map.hasImage(name)) map.addImage(name, icons[k], { pixelRatio: POI_PIXEL_RATIO });
     }
     setSource(map, "pois", data);
-    const filter: maplibregl.FilterSpecification = ["in", ["get", "kind"], ["literal", visibleKinds(s)]];
     // 지도 위 편의시설 상세는 키보드로 열 수 없다. 같은 정보는 시트의 편의시설 목록(화면 6·7)에서 키보드로 접근한다.
-    if (!map.getLayer("pois-hit")) {
-      addOrdered(map, {
-        id: "pois-hit",
-        type: "circle",
-        source: "pois",
-        paint: { "circle-radius": 22, "circle-opacity": 0 },
-      });
+    for (const g of POI_GROUPS) {
+      const hitId = `pois-hit${g.suffix}`;
+      const id = `pois${g.suffix}`;
+      if (!map.getLayer(hitId)) {
+        addOrdered(map, {
+          id: hitId,
+          type: "circle",
+          source: "pois",
+          minzoom: g.minzoom,
+          paint: { "circle-radius": 22, "circle-opacity": 0 },
+        });
+      }
+      if (!map.getLayer(id)) {
+        addOrdered(map, {
+          id,
+          type: "symbol",
+          source: "pois",
+          minzoom: g.minzoom,
+          layout: {
+            "icon-image": ["concat", "poi-", ["get", "kind"]],
+            "icon-allow-overlap": false,
+            "icon-ignore-placement": false,
+            "icon-size": 1,
+          },
+        });
+      }
     }
-    if (!map.getLayer("pois")) {
-      addOrdered(map, {
-        id: "pois",
-        type: "symbol",
-        source: "pois",
-        layout: {
-          "icon-image": ["concat", "poi-", ["get", "kind"]],
-          "icon-allow-overlap": true,
-          "icon-size": 1,
-        },
-      });
-    }
-    map.setFilter("pois-hit", filter);
-    map.setFilter("pois", ["in", ["get", "kind"], ["literal", visibleKinds(s)]]);
+    applyPoiFilters(m, s);
     bindPoiHandlers(m, s);
   });
 }
@@ -267,9 +331,20 @@ function bindPoiHandlers(m: AppMap, s: State): void {
   if (s.poiHandlersBound) return;
   s.poiHandlersBound = true;
   const map = m.map;
-  map.on("mouseenter", "pois-hit", () => (map.getCanvas().style.cursor = "pointer"));
-  map.on("mouseleave", "pois-hit", () => (map.getCanvas().style.cursor = ""));
-  map.on("click", "pois-hit", (e) => {
+  for (const g of POI_GROUPS) {
+    const hit = `pois-hit${g.suffix}`;
+    map.on("mouseenter", hit, () => (map.getCanvas().style.cursor = "pointer"));
+    map.on("mouseleave", hit, () => (map.getCanvas().style.cursor = ""));
+    map.on("click", hit, (e) => openPoiPopup(map, s, e));
+  }
+}
+
+function openPoiPopup(
+  map: maplibregl.Map,
+  s: State,
+  e: maplibregl.MapMouseEvent & { features?: maplibregl.MapGeoJSONFeature[] },
+): void {
+  {
     const f = e.features?.[0];
     if (!f || f.geometry.type !== "Point") return;
     const p = f.properties as { kind: PoiKind; name?: string | null; wheelchair?: string | null };
@@ -288,18 +363,16 @@ function bindPoiHandlers(m: AppMap, s: State): void {
       .setLngLat(f.geometry.coordinates as LngLat)
       .setDOMContent(box)
       .addTo(map);
-  });
+  }
 }
 
 export function showPois(m: AppMap, fc: GeoJSON.FeatureCollection, visible: Record<PoiKind, boolean>): void {
   const s = getState(m);
   s.pois = fc;
-  s.visible = visible;
+  s.visible = { ...visible };
   if (m.isReady() && m.map.getLayer("pois") && m.map.getSource("pois")) {
     setSource(m.map, "pois", fc);
-    const f: maplibregl.FilterSpecification = ["in", ["get", "kind"], ["literal", visibleKinds(s)]];
-    m.map.setFilter("pois", f);
-    m.map.setFilter("pois-hit", f);
+    applyPoiFilters(m, s);
     return;
   }
   applyPois(m, s);
@@ -415,6 +488,7 @@ export function clearCityLayers(m: AppMap): void {
   s.routes = null;
   for (const mk of s.cityMarkers) mk.remove();
   for (const mk of s.stopMarkers) mk.remove();
+  stopDeclutter(m, s);
   s.userMarker?.remove();
   s.popup?.remove();
   s.popup = null;
@@ -424,7 +498,7 @@ export function clearCityLayers(m: AppMap): void {
   if (styleReady(m)) {
     removeLayers(
       m.map,
-      ["segments-scored", "segments-blocked", "pois-hit", "pois", "route-acc", "route-casing", "route-short"],
+      ["segments-scored", "segments-blocked", "pois-hit-minor", "pois-hit", "pois-minor", "pois", "route-acc", "route-casing", "route-short"],
       ["segments", "pois", "route-short", "route-acc"],
     );
   }

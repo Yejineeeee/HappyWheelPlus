@@ -14,7 +14,7 @@ vi.mock("../src/map/layers", () => ({
 }));
 
 import { loadCourses, loadPois, loadSegments } from "../src/data/load";
-import { showCityMarkers, showSegments } from "../src/map/layers";
+import { showCityMarkers, showPois, showSegments } from "../src/map/layers";
 import { mountSheet } from "../src/ui/sheet";
 import { cityView } from "../src/views/city";
 import { homeView } from "../src/views/home";
@@ -100,7 +100,7 @@ function makeCtx(): AppContext & { titles: [string, string | undefined][] } {
   };
 }
 
-const tick = () => new Promise((r) => setTimeout(r, 0));
+const tick = () => new Promise((r) => setTimeout(r, 30));
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -162,6 +162,81 @@ describe("city view", () => {
     expect(showSegments).toHaveBeenCalledTimes(1);
     expect(loadCourses).toHaveBeenCalledTimes(1);
     expect(ctx.sheet.el.querySelector(".block-error")).toBeNull();
+  });
+});
+
+describe("city view lifecycle", () => {
+  it("ignores late data after the signal is aborted", async () => {
+    let resolveCourses!: (c: Course[]) => void;
+    let resolveSeg!: (v: never) => void;
+    let resolvePois!: (v: never) => void;
+    vi.mocked(loadCourses).mockReturnValue(new Promise((r) => (resolveCourses = r)));
+    vi.mocked(loadSegments).mockReturnValue(new Promise((r) => (resolveSeg = r as never)));
+    vi.mocked(loadPois).mockReturnValue(new Promise((r) => (resolvePois = r as never)));
+    const ctx = makeCtx();
+    const ctl = new AbortController();
+    ctx.signal = ctl.signal;
+    const setContent = vi.spyOn(ctx.sheet, "setContent");
+    const view = cityView("paris");
+    const mounted = view.mount(ctx);
+    ctl.abort();
+    view.unmount();
+    setContent.mockClear();
+    resolveCourses([course(0)]);
+    await mounted;
+    resolveSeg({ type: "FeatureCollection", features: [] } as never);
+    resolvePois({ type: "FeatureCollection", features: [] } as never);
+    await tick();
+    expect(setContent).not.toHaveBeenCalled();
+    expect(showSegments).not.toHaveBeenCalled();
+    expect(showPois).not.toHaveBeenCalled();
+  });
+
+  it("aborts segment and poi results that arrive after courses", async () => {
+    vi.mocked(loadCourses).mockResolvedValue([course(0)]);
+    let resolveSeg!: (v: never) => void;
+    let resolvePois!: (v: never) => void;
+    vi.mocked(loadSegments).mockReturnValue(new Promise((r) => (resolveSeg = r as never)));
+    vi.mocked(loadPois).mockReturnValue(new Promise((r) => (resolvePois = r as never)));
+    const ctx = makeCtx();
+    const ctl = new AbortController();
+    ctx.signal = ctl.signal;
+    const view = cityView("paris");
+    await view.mount(ctx);
+    ctl.abort();
+    view.unmount();
+    resolveSeg({ type: "FeatureCollection", features: [] } as never);
+    resolvePois({ type: "FeatureCollection", features: [] } as never);
+    await tick();
+    expect(showSegments).not.toHaveBeenCalled();
+    expect(showPois).not.toHaveBeenCalled();
+  });
+
+  it("chip toggle passes updated visibility to showPois; benches start off", async () => {
+    vi.mocked(loadCourses).mockResolvedValue([course(0)]);
+    vi.mocked(loadSegments).mockReturnValue(new Promise(() => {}));
+    const ctx = makeCtx();
+    await cityView("paris").mount(ctx);
+    await tick();
+    expect(showPois).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(showPois).mock.calls[0][2]).toMatchObject({ toilet: true, bench: false });
+    const chips = [...ctx.sheet.el.querySelectorAll<HTMLButtonElement>(".chip")];
+    expect(chips[2].getAttribute("aria-pressed")).toBe("false");
+    chips[2].click();
+    chips[0].click();
+    expect(showPois).toHaveBeenCalledTimes(3);
+    expect(vi.mocked(showPois).mock.calls[2][2]).toMatchObject({ toilet: false, bench: true });
+    expect(chips[0].getAttribute("aria-pressed")).toBe("false");
+  });
+
+  it("card has accessible labels for score and field stars", async () => {
+    vi.mocked(loadCourses).mockResolvedValue([course(0, { field: { difficulty: 2, stars: 5, note: "" } })]);
+    vi.mocked(loadSegments).mockReturnValue(new Promise(() => {}));
+    const ctx = makeCtx();
+    await cityView("paris").mount(ctx);
+    const text = ctx.sheet.el.querySelector(".course-card")!.textContent!;
+    expect(text).toContain("접근성 점수 77점");
+    expect(text).toContain("현장 별점 5");
   });
 });
 

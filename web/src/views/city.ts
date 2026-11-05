@@ -32,12 +32,15 @@ function courseCard(c: CityEntry, course: Course, ctx: AppContext): HTMLElement 
   const route = acc ?? course.routes.shortest;
   const score = acc ? acc.metrics.mean_score : null;
   const scoreText = !acc ? "경로 없음" : score === null ? "점수 없음" : `${Math.round(score)}점`;
+  const scoreEl = el("span", { class: "course-score" });
+  if (acc && score !== null) scoreEl.append(el("span", { class: "visually-hidden" }, "접근성 점수 "));
+  scoreEl.append(scoreText);
 
   const head = el(
     "div",
     { class: "course-head" },
     el("span", { class: "course-name" }, course.name),
-    el("span", { class: "course-score" }, scoreText),
+    scoreEl,
   );
   const facts = [fmtM(route.metrics.length_m)];
   if (route.metrics.max_grade_pct !== null) facts.push(`최대 경사 ${route.metrics.max_grade_pct.toFixed(1)}%`);
@@ -46,7 +49,12 @@ function courseCard(c: CityEntry, course: Course, ctx: AppContext): HTMLElement 
 
   const badges = el("div", { class: "course-badges" });
   if (course.field) {
-    badges.append(badge(`현장 난이도 ${course.field.difficulty}/5 · ★${course.field.stars}`, "field"));
+    const b = badge(`현장 난이도 ${course.field.difficulty}/5 · `, "field");
+    b.append(
+      el("span", { "aria-hidden": "true" }, `★${course.field.stars}`),
+      el("span", { class: "visually-hidden" }, `현장 별점 ${course.field.stars}`),
+    );
+    badges.append(b);
   }
   if (course.approximate) badges.append(badge("근사 결과", "warn"));
 
@@ -121,7 +129,8 @@ export function cityView(cityId: string): View {
       fitTo(ctx, cityBounds(city));
 
       const render = (courses: Course[]) => {
-        const visible: Record<PoiKind, boolean> = { toilet: true, elevator: true, bench: true, fountain: true };
+        // 벤치는 수가 많아 처음에는 끈다.
+        const visible: Record<PoiKind, boolean> = { toilet: true, elevator: true, bench: false, fountain: true };
         let pois: FeatureCollection<Point, PoiProps> | null = null;
 
         const segError = el("div", { class: "load-error" });
@@ -130,7 +139,7 @@ export function cityView(cityId: string): View {
         const countList = el("ul", { class: "poi-counts", "aria-label": "편의시설 수" });
         const chips = el("div", { class: "chips", role: "group", "aria-label": "지도에 보일 편의시설" });
         for (const k of POI_KINDS) {
-          const chip = el("button", { type: "button", class: "chip", "aria-pressed": "true" }, POI_LABEL[k]);
+          const chip = el("button", { type: "button", class: "chip", "aria-pressed": String(visible[k]) }, POI_LABEL[k]);
           chip.addEventListener("click", () => {
             visible[k] = !visible[k];
             chip.setAttribute("aria-pressed", String(visible[k]));
@@ -164,13 +173,17 @@ export function cityView(cityId: string): View {
         const loadSeg = (): void => {
           segError.replaceChildren();
           if (!overlay) {
-            overlay = el(
-              "div",
-              { class: "map-overlay", role: "status", "aria-live": "polite" },
-              el("span", { class: "spinner", "aria-hidden": "true" }),
-              el("span", {}, "길 데이터를 불러오는 중"),
-            );
-            ctx.shell.mapContainer.append(overlay);
+            // 빈 알림 영역을 먼저 넣고 다음 프레임에 문구를 채워야 스크린 리더가 읽는다.
+            const box = el("div", { class: "map-overlay", role: "status", "aria-live": "polite" });
+            overlay = box;
+            ctx.shell.mapContainer.append(box);
+            requestAnimationFrame(() => {
+              if (overlay !== box) return;
+              box.append(
+                el("span", { class: "spinner", "aria-hidden": "true" }),
+                el("span", {}, "길 데이터를 불러오는 중"),
+              );
+            });
           }
           loadSegments(city).then(
             (fc: FeatureCollection<LineString, SegmentProps>) => {
@@ -208,6 +221,13 @@ export function cityView(cityId: string): View {
         loadPoiData();
       };
 
+      const retryCourses = (): void => {
+        loadCourseList().catch(() => {
+          if (ctx.signal.aborted) return;
+          ctx.sheet.setContent(errorBlock("코스 정보를 표시하지 못했어요.", retryCourses));
+        });
+      };
+
       const loadCourseList = async (): Promise<void> => {
         ctx.sheet.setContent(loadingBlock("코스를 불러오는 중"));
         let courses: Course[];
@@ -215,7 +235,7 @@ export function cityView(cityId: string): View {
           courses = await loadCourses(city);
         } catch {
           if (ctx.signal.aborted) return;
-          ctx.sheet.setContent(errorBlock("코스 정보를 불러오지 못했어요.", () => void loadCourseList()));
+          ctx.sheet.setContent(errorBlock("코스 정보를 불러오지 못했어요.", retryCourses));
           return;
         }
         if (ctx.signal.aborted) return;
