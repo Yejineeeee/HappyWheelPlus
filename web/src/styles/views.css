@@ -244,6 +244,8 @@
 .notice { margin: 0; padding: 10px var(--space-3); border-radius: var(--radius-sm); background: var(--warn-bg); color: var(--warn); font-weight: 600; font-size: 14px; }
 .route-summary-row { display: flex; flex-direction: column; margin-top: var(--space-3); }
 .route-summary-row .route-nav { align-self: stretch; }
+.route-nav-off { margin: 0; padding: 10px var(--space-3); border: 1px dashed var(--line); border-radius: var(--radius-sm); color: var(--muted); font-size: 14px; line-height: 1.45; }
+.nav-unreachable { display: flex; flex-direction: column; gap: var(--space-3); align-items: flex-start; }
 
 /* 지도 아래 떠 있는 경로 요약 바(넓은 화면) */
 .route-bar { display: none; }

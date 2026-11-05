@@ -50,6 +50,7 @@ function ctx(): AppContext & { titles: string[] } {
       mapContainer: document.getElementById("map")!,
       setTitle: (t: string) => titles.push(t),
       onThemeChange: () => {},
+      requestHeadingFocus: () => {},
     },
     index: INDEX,
     navigate: vi.fn(),

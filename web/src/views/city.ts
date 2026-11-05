@@ -210,7 +210,7 @@ export function cityView(cityId: string): View {
         const loadSeg = (): void => {
           if (overlay) overlay.loading();
           else overlay = loadingOverlay(ctx.shell.mapContainer, `${city.name_ko} 길 데이터를 불러오는 중…`);
-          loadSegments(city).then(
+          loadSegments(city, ctx.signal).then(
             (fc: FeatureCollection<LineString, SegmentProps>) => {
               if (ctx.signal.aborted) return;
               removeOverlay();
@@ -226,7 +226,7 @@ export function cityView(cityId: string): View {
 
         const loadPoiData = (): void => {
           poiError.replaceChildren();
-          loadPois(city).then(
+          loadPois(city, ctx.signal).then(
             (fc) => {
               if (ctx.signal.aborted) return;
               pois = fc;
@@ -257,7 +257,7 @@ export function cityView(cityId: string): View {
         ctx.sheet.setContent(loadingBlock("코스를 불러오는 중"));
         let courses: Course[];
         try {
-          courses = await loadCourses(city);
+          courses = await loadCourses(city, ctx.signal);
         } catch {
           if (ctx.signal.aborted) return;
           ctx.sheet.setContent(errorBlock("코스 정보를 불러오지 못했어요.", retryCourses));

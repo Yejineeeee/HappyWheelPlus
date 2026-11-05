@@ -4,11 +4,12 @@ import { loadCourses, loadSegments } from "../data/load";
 import type { Course, SegmentProps } from "../data/types";
 import { prefersReducedMotion, setSegmentsOpacity, showRouteProgress, showRoutes, showStops, showUser } from "../map/layers";
 import { buildInstructions, type Instruction } from "../nav/instructions";
-import { startNav, type NavHandle, type NavSource, type NavUpdate } from "../nav/controller";
+import { startNav, type NavHandle, type NavSource, type NavUpdate, type NeedSimReason } from "../nav/controller";
 import { cumulative, locateForward, splitAt } from "../nav/progress";
 import { el, errorBlock, loadingBlock } from "../ui/components";
 import { fmtM } from "../ui/format";
 import { fitPadding } from "./mapFit";
+import { canGuide, NO_NAV_TEXT } from "./messages";
 import { notFoundView } from "./notFound";
 import type { AppContext, View } from "./types";
 
@@ -18,7 +19,12 @@ type SegFeature = { geometry: { coordinates: number[][] }; properties: SegmentPr
 const MIN_ZOOM = 16;
 /** 위치를 쓸 수 없을 때 안내 카드 문구. 아래 시트의 "가상 위치" 토글로 바로 바꿀 수 있다. */
 export const NO_LOCATION_TEXT = "위치를 쓸 수 없어요 — 가상 위치로 볼 수 있어요";
-const NO_LOCATION_REASON: Record<"denied" | "unavailable", string> = {
+/** 첫 위치가 경로에서 한참 떨어져 있을 때(다른 도시에 있을 때) 안내 카드 문구. */
+export const FAR_TEXT = "지금 이 도시에 있지 않아요 — 가상 위치로 볼 수 있어요";
+/** 이보다 멀리 벗어난 위치로는 지도를 따라 움직이지 않는다. */
+export const FOLLOW_MAX_OFF_M = 1000;
+const NO_LOCATION_REASON: Record<NeedSimReason, string> = {
+  far: "지금 계신 곳이 이 경로에서 멀리 떨어져 있어요. 아래 ‘가상 위치’를 누르면 이 도시에 있는 것처럼 길안내를 볼 수 있어요.",
   denied: "위치 권한이 꺼져 있어요. 아래 ‘가상 위치’를 누르면 유럽에 있지 않아도 길안내를 볼 수 있어요.",
   unavailable: "현재 위치를 가져오지 못했어요. 아래 ‘가상 위치’를 누르면 길안내를 볼 수 있어요.",
 };
@@ -102,7 +108,7 @@ export function navView(cityId: string, courseIndex: number): View {
         ctx.sheet.setContent(loadingBlock("길안내를 준비하는 중"));
         let courses: Course[];
         try {
-          courses = await loadCourses(city);
+          courses = await loadCourses(city, ctx.signal);
         } catch {
           if (ctx.signal.aborted) return;
           ctx.sheet.setContent(errorBlock("코스 정보를 불러오지 못했어요.", () => void loadAll()));
@@ -115,10 +121,23 @@ export function navView(cityId: string, courseIndex: number): View {
           inner.mount(ctx);
           return;
         }
+        if (!canGuide(course)) {
+          ctx.shell.setTitle(
+            "길안내",
+            [
+              { label: city.name_ko, href: `#/${cityId}` },
+              { label: course.name, href: `#/${cityId}/${course.index}` },
+            ],
+            `${course.name} 길안내`,
+          );
+          const back = el("a", { class: "btn btn-quiet", href: `#/${cityId}/${course.index}` }, "코스로 돌아가기");
+          ctx.sheet.setContent(el("div", { class: "nav-unreachable" }, el("p", { class: "notice notice-warn" }, NO_NAV_TEXT), back));
+          return;
+        }
         // 구간 정보는 크지만 없어도 회전·도착 안내는 가능하다.
         let features: SegFeature[] = [];
         try {
-          features = (await loadSegments(city)).features as unknown as SegFeature[];
+          features = (await loadSegments(city, ctx.signal)).features as unknown as SegFeature[];
         } catch {
           features = [];
         }
@@ -238,7 +257,7 @@ export function navView(cityId: string, courseIndex: number): View {
           showRoutes(ctx.map, null, rest);
           showRouteProgress(ctx.map, done);
           showUser(ctx.map, u.pos, u.heading);
-          follow(u.pos);
+          if (u.progress.offRouteM <= FOLLOW_MAX_OFF_M) follow(u.pos);
           lastText = setText(instructionEl, u.text, lastText);
           lastRemain = setText(remainEl, `남은 거리 ${fmtM(u.progress.remainingM)}`, lastRemain);
           const nextStop = course.stops[Math.min(u.progress.nextStopIndex, course.stops.length - 1)];
@@ -249,7 +268,7 @@ export function navView(cityId: string, courseIndex: number): View {
           const wasOff = lastWarn !== "";
           if (u.offRoute !== wasOff || (u.offRoute && Math.abs(offM - warnM) >= 20)) {
             if (u.offRoute) {
-              lastWarn = `경로에서 ${offM}m 벗어났어요`;
+              lastWarn = `경로에서 ${fmtM(offM)} 벗어났어요`;
               warnM = offM;
               warnEl.textContent = lastWarn;
               warnEl.removeAttribute("hidden");
@@ -291,8 +310,8 @@ export function navView(cityId: string, courseIndex: number): View {
         };
 
         // 위치를 쓸 수 없으면 "위치를 확인하는 중"을 바로 바꾼다. 따로 버튼을 두지 않고 시트의 위치 방식 토글 하나로 전환한다.
-        const showPrompt = (reason: "denied" | "unavailable"): void => {
-          lastText = setText(instructionEl, NO_LOCATION_TEXT, lastText);
+        const showPrompt = (reason: NeedSimReason): void => {
+          lastText = setText(instructionEl, reason === "far" ? FAR_TEXT : NO_LOCATION_TEXT, lastText);
           reasonEl.textContent = NO_LOCATION_REASON[reason];
           reasonEl.removeAttribute("hidden");
           ctx.sheet.setSnap("peek");

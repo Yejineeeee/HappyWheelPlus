@@ -64,6 +64,7 @@
 }
 .crumbs a:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
 .crumb-sep { margin: 0 6px; }
+.page-title:focus { outline: none; }
 .page-title {
   margin: 0;
   font-size: 20px;

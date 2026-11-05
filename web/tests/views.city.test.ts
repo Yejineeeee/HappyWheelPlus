@@ -94,6 +94,7 @@ function makeCtx(): AppContext & { titles: unknown[][] } {
       mapContainer,
       setTitle: (...args: unknown[]) => titles.push(args),
       onThemeChange: () => {},
+      requestHeadingFocus: () => {},
     },
     index: INDEX,
     navigate: vi.fn(),

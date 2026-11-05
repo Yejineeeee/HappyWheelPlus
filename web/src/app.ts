@@ -60,9 +60,13 @@ export function startApp(root: HTMLElement): void {
   let index: CityIndex | null = null;
   let current: { view: View; ctl: AbortController } | null = null;
   let layerKey: string | null = null;
+  let shownOnce = false;
 
   const show = (route: Route): void => {
     if (!index) return;
+    // 처음 열 때는 건드리지 않고, 이후 화면을 옮길 때마다 제목으로 초점을 옮긴다.
+    if (shownOnce) shell.requestHeadingFocus();
+    shownOnce = true;
     if (current) {
       current.ctl.abort();
       current.view.unmount();

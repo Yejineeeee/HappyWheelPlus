@@ -21,7 +21,7 @@ describe("shell header and page head", () => {
     expect(links.map((a) => a.getAttribute("href"))).toEqual(["#/compare", "#/about"]);
     expect(links.map((a) => a.querySelector(".label-long")!.textContent)).toEqual(["도시 비교", "분석 방법"]);
     expect(links.map((a) => a.querySelector(".label-short")!.textContent)).toEqual(["비교", "방법"]);
-    expect(header.querySelector('button[aria-label="테마 바꾸기"]')).not.toBeNull();
+    expect(header.querySelector('button[aria-label="어두운 화면으로 바꾸기"]')).not.toBeNull();
     expect(header.querySelector('[aria-label="뒤로"]')).toBeNull();
     expect(header.querySelector("h1")).toBeNull();
   });
@@ -82,6 +82,39 @@ describe("shell header and page head", () => {
     expect(shell.pageHead.querySelector(".crumbs")).toBeNull();
     expect(shell.pageHead.querySelector("h1")!.classList.contains("visually-hidden")).toBe(true);
     expect(document.title).toBe("HappyWheel+");
+  });
+
+  it("moves focus to the new heading only when requested, once", () => {
+    const shell = mountShell(document.getElementById("app")!);
+    document.body.append(shell.pageHead);
+    shell.setTitle("파리");
+    expect(document.activeElement).not.toBe(shell.pageHead.querySelector("h1"));
+    shell.requestHeadingFocus();
+    shell.setTitle("에펠 코스", [{ label: "파리", href: "#/paris" }]);
+    const h1 = shell.pageHead.querySelector("h1")!;
+    expect(h1.getAttribute("tabindex")).toBe("-1");
+    expect(document.activeElement).toBe(h1);
+    (document.activeElement as HTMLElement).blur();
+    shell.setTitle("에펠 코스 길안내");
+    expect(document.activeElement).not.toBe(shell.pageHead.querySelector("h1"));
+  });
+
+  it("focuses the hidden heading on home", () => {
+    const shell = mountShell(document.getElementById("app")!);
+    document.body.append(shell.pageHead);
+    shell.requestHeadingFocus();
+    shell.setTitle(null);
+    expect(document.activeElement).toBe(shell.pageHead.querySelector("h1.visually-hidden"));
+  });
+
+  it("theme button label names the action and follows the theme", () => {
+    const shell = mountShell(document.getElementById("app")!);
+    const btn = shell.header.querySelector<HTMLButtonElement>(".theme-btn")!;
+    expect(btn.getAttribute("aria-label")).toBe("어두운 화면으로 바꾸기");
+    btn.click();
+    expect(btn.getAttribute("aria-label")).toBe("밝은 화면으로 바꾸기");
+    btn.click();
+    expect(btn.getAttribute("aria-label")).toBe("어두운 화면으로 바꾸기");
   });
 
   it("sets the layout on the app body", () => {

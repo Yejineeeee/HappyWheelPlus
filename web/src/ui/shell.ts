@@ -22,6 +22,8 @@ export interface Shell {
    */
   setTitle(title: string | null, crumbs?: Crumb[], docTitle?: string): void;
   setLayout(l: Layout): void;
+  /** 다음 setTitle이 만든 제목(h1)으로 초점을 옮기도록 예약한다. 화면 이동 뒤 키보드·화면 읽기 사용자의 위치를 맞추는 데 쓴다. */
+  requestHeadingFocus(): void;
   /** 테마 토글 후 호출. data-theme은 콜백 호출 전에 이미 바뀌어 있다. */
   onThemeChange(cb: (t: "light" | "dark") => void): void;
 }
@@ -68,7 +70,7 @@ export function mountShell(root: HTMLElement): Shell {
     <header class="app-header">
       <a class="brand" href="#/">${APP_NAME}</a>
       <nav class="header-nav" aria-label="주 메뉴">${links}</nav>
-      <button type="button" class="icon-btn theme-btn" data-role="theme" aria-label="테마 바꾸기"></button>
+      <button type="button" class="icon-btn theme-btn" data-role="theme" aria-label="어두운 화면으로 바꾸기"></button>
     </header>
     <div class="app-body" data-layout="default">
       <section class="panel" data-role="panel"></section>
@@ -82,6 +84,7 @@ export function mountShell(root: HTMLElement): Shell {
   const brand = header.querySelector<HTMLAnchorElement>("a.brand")!;
   const navLinks = [...header.querySelectorAll<HTMLAnchorElement>(".header-link")];
   const themeListeners: ((t: "light" | "dark") => void)[] = [];
+  let focusNext = false;
 
   const pageHead = document.createElement("div");
   pageHead.className = "page-head";
@@ -89,6 +92,7 @@ export function mountShell(root: HTMLElement): Shell {
   const syncThemeIcon = () => {
     const dark = document.documentElement.getAttribute("data-theme") === "dark";
     themeBtn.replaceChildren(icon(dark ? "sun" : "moon", 20));
+    themeBtn.setAttribute("aria-label", dark ? "밝은 화면으로 바꾸기" : "어두운 화면으로 바꾸기");
   };
   syncThemeIcon();
 
@@ -127,18 +131,28 @@ export function mountShell(root: HTMLElement): Shell {
     setLayout(l) {
       body.dataset.layout = l;
     },
+    requestHeadingFocus() {
+      focusNext = true;
+    },
     setTitle(title, crumbs = [], docTitle) {
       syncNav();
       const t = docTitle ?? title;
       document.title = t === null ? APP_NAME : `${t} · ${APP_NAME}`;
       const h1 = document.createElement("h1");
       h1.className = "page-title";
+      h1.tabIndex = -1;
+      const focusHeading = (): void => {
+        if (!focusNext) return;
+        focusNext = false;
+        h1.focus({ preventScroll: true });
+      };
       if (title === null) {
         // 홈은 소개 문장으로 시작하므로 제목은 화면 읽기 프로그램에만 준다.
         h1.classList.add("visually-hidden");
         h1.textContent = APP_NAME;
         pageHead.classList.add("is-home");
         pageHead.replaceChildren(h1);
+        focusHeading();
         return;
       }
       pageHead.classList.remove("is-home");
@@ -166,6 +180,7 @@ export function mountShell(root: HTMLElement): Shell {
       }
       nodes.push(h1);
       pageHead.replaceChildren(...nodes);
+      focusHeading();
     },
   };
 }

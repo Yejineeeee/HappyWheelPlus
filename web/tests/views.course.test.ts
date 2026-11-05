@@ -95,6 +95,7 @@ function makeCtx(): AppContext & { titles: unknown[][] } {
       mapContainer: document.getElementById("map")!,
       setTitle: (...args: unknown[]) => titles.push(args),
       onThemeChange: () => {},
+      requestHeadingFocus: () => {},
     },
     index: INDEX,
     navigate: vi.fn(),
@@ -537,6 +538,17 @@ describe("course view route tabs and summary", () => {
     ctx.sheet.el.querySelector<HTMLButtonElement>('[role="radio"][data-value="shortest"]')!.click();
     expect(shown()).toEqual(["a"]);
     expect(ctx.sheet.el.querySelector(".poi-near")!.textContent).toBe("화장실 1곳");
+  });
+
+  it("unreachable course offers no 길안내 link, only the explanation", async () => {
+    vi.mocked(loadCourses).mockResolvedValue(unreachable as unknown as Course[]);
+    const ctx = makeCtx();
+    await courseView("paris", (unreachable as unknown as Course[])[0].index).mount(ctx);
+    await tick();
+    expect(ctx.sheet.el.querySelector("a.route-nav")).toBeNull();
+    expect(ctx.sheet.el.querySelector('a[href$="/nav"]')).toBeNull();
+    expect(ctx.sheet.el.querySelector(".route-nav-off")!.textContent).toBe("휠체어로 이어지는 길이 없어 길안내를 할 수 없어요");
+    expect(ctx.shell.mapContainer.querySelector('a[href$="/nav"]')).toBeNull();
   });
 
   it("unreachable course has no route tabs", async () => {

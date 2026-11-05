@@ -16,6 +16,7 @@ import {
 import { el, errorBlock, kvList, loadingBlock, scoreMeter, segmented, type KvRow } from "../ui/components";
 import { fmtDelta, fmtM, fmtPct } from "../ui/format";
 import { icon } from "../ui/icons";
+import { canGuide, NO_NAV_TEXT } from "./messages";
 import { disposeProfileChart, profileChart } from "../ui/profileChart";
 import { loadingOverlay, type LoadingOverlay } from "../ui/overlay";
 import { conditionsPanel, type ConditionsPanel, type CustomRoute } from "./conditions";
@@ -194,6 +195,7 @@ const NAV_LABEL = "길안내";
 const NAV_LABEL_SHORTEST = "휠체어 경로로 길안내";
 
 function navLink(c: Course, cityId: string): HTMLElement {
+  if (!canGuide(c)) return el("p", { class: "route-nav-off" }, NO_NAV_TEXT);
   const label = el("span", { class: "route-nav-label" }, NAV_LABEL);
   return el("a", { href: `#/${cityId}/${c.index}/nav`, class: "btn route-nav" }, icon("navigation", 18), label);
 }
@@ -287,7 +289,7 @@ export function courseView(cityId: string, courseIndex: number): View {
         ctx.sheet.setContent(loadingBlock("코스를 불러오는 중"));
         let courses: Course[];
         try {
-          courses = await loadCourses(city);
+          courses = await loadCourses(city, ctx.signal);
         } catch {
           if (ctx.signal.aborted) return;
           ctx.sheet.setContent(errorBlock("코스 정보를 불러오지 못했어요.", () => void loadAll()));
@@ -307,7 +309,7 @@ export function courseView(cityId: string, courseIndex: number): View {
       const loadHeatmap = (): void => {
         if (overlay) overlay.loading();
         else overlay = loadingOverlay(ctx.shell.mapContainer, `${city.name_ko} 길 데이터를 불러오는 중…`);
-        loadSegments(city).then(
+        loadSegments(city, ctx.signal).then(
           (fc) => {
             if (ctx.signal.aborted) return;
             overlay?.remove();
@@ -477,7 +479,7 @@ export function courseView(cityId: string, courseIndex: number): View {
         ctx.sheet.setContent(root);
 
         const loadPoiData = (): void => {
-          loadPois(city).then(
+          loadPois(city, ctx.signal).then(
             (fc) => {
               if (ctx.signal.aborted) return;
               allPois = fc as PoiFc;

@@ -7,6 +7,9 @@ type LngLat = [number, number];
 
 export type NavSource = "gps" | "sim";
 
+/** denied: 권한 거부, unavailable: 위치를 못 얻음, far: 첫 위치가 경로에서 너무 멀다(다른 도시). */
+export type NeedSimReason = "denied" | "unavailable" | "far";
+
 export interface NavUpdate {
   pos: LngLat;
   progress: Progress;
@@ -19,7 +22,7 @@ export interface NavUpdate {
 export interface NavOptions {
   coords: LngLat[];
   onUpdate: (u: NavUpdate) => void;
-  onNeedSimulation: (reason: "denied" | "unavailable") => void;
+  onNeedSimulation: (reason: NeedSimReason) => void;
   source: NavSource;
   geolocation?: Geolocation;
   /** 미리 만든 안내. 없으면 회전과 도착만 만든다. */
@@ -39,6 +42,8 @@ export interface NavHandle {
 }
 
 export const GPS_FIRST_FIX_TIMEOUT_MS = 15000;
+/** 첫 위치가 경로에서 이만큼 넘게 떨어져 있으면 이 도시에 있지 않은 것으로 본다. */
+export const FAR_FROM_ROUTE_M = 3000;
 
 export function startNav(opts: NavOptions): NavHandle {
   const { coords } = opts;
@@ -53,6 +58,7 @@ export function startNav(opts: NavOptions): NavHandle {
   let prevFix: LngLat | null = null;
   let stopped = false;
   let needSent = false;
+  let firstChecked = false;
 
   // 경로에서 벗어난 상태가 이어진 횟수. 위치 정확도만큼은 오차로 보고 뺀다.
   let offCount = 0;
@@ -64,6 +70,16 @@ export function startNav(opts: NavOptions): NavHandle {
     const useHint = hint !== undefined && offCount === 0;
     let progress = locate(coords, cum, pos, useHint ? hint : undefined, opts.stopsAlongM, accuracy, disp);
     let off = progress.offRouteM - accuracy > OFF_ROUTE_M;
+    if (opts.source === "gps" && !firstChecked) {
+      firstChecked = true;
+      if (progress.offRouteM > FAR_FROM_ROUTE_M) {
+        needSim("far");
+        stopped = true;
+        clearTimer();
+        geo?.clearWatch(watchId);
+        return;
+      }
+    }
     if (off) {
       offCount++;
       if (offCount >= 2 && useHint) {
@@ -105,7 +121,7 @@ export function startNav(opts: NavOptions): NavHandle {
 
   const geo = opts.geolocation ?? (typeof navigator !== "undefined" ? navigator.geolocation : undefined);
   const noop = { setSpeed() {}, pause() {}, resume() {} };
-  const needSim = (reason: "denied" | "unavailable"): void => {
+  const needSim = (reason: NeedSimReason): void => {
     if (needSent || stopped) return;
     needSent = true;
     opts.onNeedSimulation(reason);

@@ -1,3 +1,4 @@
+import { onCityEvict } from "../data/evict";
 import type { Course, GraphJson, PoiKind, RouteMetrics, SegmentProps, Weights } from "../data/types";
 import { pathCoords, routeStops, type PathResult } from "./dijkstra";
 import { pointLineDistM } from "./geo";
@@ -119,6 +120,13 @@ export function clearGraphCache(): void {
 }
 
 const propsCache = new Map<string, SegmentProps[]>();
+
+// 도시 데이터가 메모리에서 밀려나면 그 도시에서 파생한 그래프·속성 캐시도 함께 비운다.
+onCityEvict((cityId) => {
+  for (const cache of [graphCache, propsCache] as Map<string, unknown>[]) {
+    for (const key of [...cache.keys()]) if (key.startsWith(`${cityId}@`)) cache.delete(key);
+  }
+});
 
 /** 구간 속성 배열(인덱스 = seg_id)을 도시·data_version 별로 한 번만 만든다. */
 export function cachedSegProps(cityId: string, version: string, features: { properties: SegmentProps }[]): SegmentProps[] {

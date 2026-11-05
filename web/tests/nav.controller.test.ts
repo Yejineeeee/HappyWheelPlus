@@ -84,6 +84,30 @@ describe("nav controller", () => {
     expect(onUpdate).toHaveBeenCalledTimes(3);
   });
 
+  it("a first fix more than 3 km from the route asks for simulation and never updates", () => {
+    const g = fakeGeo();
+    const onUpdate = vi.fn();
+    const need = vi.fn();
+    startNav({ coords: LINE, source: "gps", geolocation: g.geo, onUpdate, onNeedSimulation: need });
+    g.fix(8.3, 47.0 + 0.05); // 약 5.5km 북쪽
+    expect(need).toHaveBeenCalledTimes(1);
+    expect(need).toHaveBeenCalledWith("far");
+    expect(onUpdate).not.toHaveBeenCalled();
+    expect(g.raw.clearWatch).toHaveBeenCalledWith(7);
+    g.fix(8.3, 47.0003);
+    expect(onUpdate).not.toHaveBeenCalled();
+  });
+
+  it("a first fix within 3 km is accepted even if off the route", () => {
+    const g = fakeGeo();
+    const onUpdate = vi.fn();
+    const need = vi.fn();
+    startNav({ coords: LINE, source: "gps", geolocation: g.geo, onUpdate, onNeedSimulation: need });
+    g.fix(8.3, 47.0 + 0.015); // 약 1.5km
+    expect(need).not.toHaveBeenCalled();
+    expect(onUpdate).toHaveBeenCalledTimes(1);
+  });
+
   it("accuracy is subtracted and off-route needs two consecutive fixes", () => {
     const g = fakeGeo();
     const onUpdate = vi.fn();

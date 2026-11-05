@@ -2,7 +2,8 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { clearDataCache, DataError, loadCourses, loadGraph, loadIndex, loadPois, loadSegments } from "../src/data/load";
+import { ABORT_GRACE_MS, clearDataCache, DataError, loadCourses, loadGraph, loadIndex, loadPois, loadSegments } from "../src/data/load";
+import { cachedGraph, cachedSegProps } from "../src/core/conditions";
 import type { CityIndex, Course } from "../src/data/types";
 
 const FIX = join(dirname(fileURLToPath(import.meta.url)), "fixtures");
@@ -86,5 +87,100 @@ describe("data loaders", () => {
     expect(c.comparison).toBeNull();
     expect(c.blocked_at).toEqual([2.33, 48.86]);
     expect(c.routes.shortest.profile[0]).toHaveLength(3);
+  });
+});
+
+describe("bounded city cache", () => {
+  const other = (id: string) => ({ ...city, id });
+  const body = (url: string): string => {
+    if (url.includes("graph.json")) return read("fakecity/graph.json");
+    if (url.includes("segments")) return read("fakecity/segments.geojson");
+    return read("fakecity/courses.json");
+  };
+  function serveAny() {
+    const mock = vi.fn(async (input: RequestInfo | URL) => new Response(body(String(input)), { status: 200 }));
+    vi.stubGlobal("fetch", mock);
+    return mock;
+  }
+  const hits = (mock: ReturnType<typeof serveAny>, id: string): number =>
+    mock.mock.calls.filter((c) => String(c[0]).includes(`/data/${id}/segments`)).length;
+
+  it("keeps only the two most recently used cities", async () => {
+    const mock = serveAny();
+    const [a, b, c] = [other("a"), other("b"), other("c")];
+    await loadSegments(a);
+    await loadSegments(b);
+    await loadSegments(a); // a를 최근으로 올린다
+    expect(hits(mock, "a")).toBe(1);
+    await loadSegments(c); // b가 밀려난다
+    await loadSegments(a);
+    expect(hits(mock, "a")).toBe(1);
+    await loadSegments(b);
+    expect(hits(mock, "b")).toBe(2);
+  });
+
+  it("opening a third city evicts the first city's files and derived caches", async () => {
+    const mock = serveAny();
+    const [a, b, c] = [other("a"), other("b"), other("c")];
+    const gj = await loadGraph(a);
+    const fc = await loadSegments(a);
+    const g1 = cachedGraph(a.id, a.data_version, gj);
+    const p1 = cachedSegProps(a.id, a.data_version, fc.features);
+    expect(cachedGraph(a.id, a.data_version, gj)).toBe(g1);
+    await loadSegments(b);
+    await loadSegments(c);
+    expect(cachedGraph(a.id, a.data_version, gj)).not.toBe(g1);
+    expect(cachedSegProps(a.id, a.data_version, fc.features)).not.toBe(p1);
+    await loadGraph(a);
+    expect(mock.mock.calls.filter((x) => String(x[0]).includes("/data/a/graph")).length).toBe(2);
+  });
+
+  it("aborts a pending request after its last consumer leaves, but not before", async () => {
+    vi.useFakeTimers();
+    try {
+      let seen: AbortSignal | undefined;
+      vi.stubGlobal(
+        "fetch",
+        vi.fn((_u: unknown, init?: RequestInit) => {
+          seen = init?.signal ?? undefined;
+          return new Promise<Response>((_res, rej) => seen?.addEventListener("abort", () => rej(new DOMException("x", "AbortError"))));
+        }),
+      );
+      const v1 = new AbortController();
+      const v2 = new AbortController();
+      const p = loadSegments(city, v1.signal);
+      p.catch(() => {});
+      loadSegments(city, v2.signal).catch(() => {});
+      v1.abort();
+      vi.advanceTimersByTime(ABORT_GRACE_MS + 10);
+      expect(seen?.aborted).toBe(false); // 아직 소비자가 있다
+      v2.abort();
+      vi.advanceTimersByTime(ABORT_GRACE_MS + 10);
+      expect(seen?.aborted).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("does not abort when a new consumer arrives within the grace period", async () => {
+    vi.useFakeTimers();
+    try {
+      let seen: AbortSignal | undefined;
+      vi.stubGlobal(
+        "fetch",
+        vi.fn((_u: unknown, init?: RequestInit) => {
+          seen = init?.signal ?? undefined;
+          return new Promise<Response>(() => {});
+        }),
+      );
+      const v1 = new AbortController();
+      loadSegments(city, v1.signal).catch(() => {});
+      v1.abort();
+      loadSegments(city, new AbortController().signal).catch(() => {});
+      vi.advanceTimersByTime(ABORT_GRACE_MS + 10);
+      expect(seen?.aborted).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

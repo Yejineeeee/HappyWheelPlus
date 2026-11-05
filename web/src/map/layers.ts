@@ -290,18 +290,17 @@ export function hasSegments(m: AppMap): boolean {
 
 export function showSegments(m: AppMap, fc: GeoJSON.FeatureCollection, scores: Float32Array | null): void {
   const s = getState(m);
-  const features = fc.features.map((f, i) => {
-    const p = (f.properties ?? {}) as Record<string, unknown>;
+  // 불러온 데이터 객체에 화면용 값(s: 점수, b: 통과 불가)만 덧붙여 그대로 쓴다. 복사본을 따로 들고 있지 않는다.
+  for (let i = 0; i < fc.features.length; i++) {
+    const f = fc.features[i];
+    const p = (f.properties ??= {}) as Record<string, unknown>;
     const fid = typeof f.id === "number" ? f.id : i;
     const base = typeof p.score === "number" ? p.score : null;
     const sc = scores ? scores[fid] : base;
-    const blocked = p.blocked === true;
-    return {
-      ...f,
-      properties: { ...p, s: sc !== null && sc !== undefined && Number.isFinite(sc) ? sc : -1, b: blocked },
-    };
-  });
-  s.segments = { ...fc, features };
+    p.s = sc !== null && sc !== undefined && Number.isFinite(sc) ? sc : -1;
+    p.b = p.blocked === true;
+  }
+  s.segments = fc;
   applySegments(m, s);
 }
 

@@ -375,7 +375,7 @@ export function conditionsPanel(opts: PanelOpts): ConditionsPanel {
     setControlsDisabled(true);
     result.replaceChildren();
     setStatus("경로 계산에 필요한 데이터를 불러오는 중");
-    Promise.all([loadGraph(city), loadSegments(city), loadPois(city)]).then(
+    Promise.all([loadGraph(city, ctx.signal), loadSegments(city, ctx.signal), loadPois(city, ctx.signal)]).then(
       ([gj, fc, pois]) => {
         loading = false;
         if (ctx.signal.aborted || dead) return;

@@ -54,6 +54,7 @@ function makeCtx(): AppContext & { ctl: AbortController } {
       mapContainer: document.getElementById("map")!,
       setTitle: () => {},
       onThemeChange: () => {},
+      requestHeadingFocus: () => {},
     },
     index: idx,
     navigate: vi.fn(),

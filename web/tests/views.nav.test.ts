@@ -218,6 +218,64 @@ describe("nav view", () => {
     v.unmount();
   });
 
+  it("a far first gps fix suggests the simulated position without starting it or moving the camera", async () => {
+    let ok: PositionCallback = () => {};
+    const clearWatch = vi.fn();
+    setGeo({ watchPosition: (s: PositionCallback) => ((ok = s), 1), clearWatch });
+    const ctx = makeCtx();
+    const v = navView("paris", 0);
+    await v.mount(ctx);
+    await flush();
+    const m = (ctx.map as unknown as { map: { easeTo: ReturnType<typeof vi.fn>; jumpTo: ReturnType<typeof vi.fn> } }).map;
+    ok({ coords: { longitude: 2.35, latitude: 48.85, heading: null, accuracy: 10 } } as GeolocationPosition);
+    const card = ctx.shell.mapContainer.querySelector(".nav-card")!;
+    expect(card.querySelector(".nav-instruction")!.textContent).toBe("지금 이 도시에 있지 않아요 — 가상 위치로 볼 수 있어요");
+    expect(m.easeTo).not.toHaveBeenCalled();
+    expect(m.jumpTo).not.toHaveBeenCalled();
+    expect(showUser).not.toHaveBeenCalled();
+    const pressed = [...ctx.sheet.el.querySelectorAll<HTMLButtonElement>(".nav-controls button")].map((b) => [b.textContent, b.getAttribute("aria-pressed")]);
+    expect(pressed).toContainEqual(["가상 위치", "false"]); // 자동으로 시작하지 않는다
+    v.unmount();
+  });
+
+  it("does not follow positions over 1 km off the route and formats the distance with km", async () => {
+    let ok: PositionCallback = () => {};
+    setGeo({ watchPosition: (s: PositionCallback) => ((ok = s), 1), clearWatch: vi.fn() });
+    const ctx = makeCtx();
+    const v = navView("paris", 0);
+    await v.mount(ctx);
+    await flush();
+    const m = (ctx.map as unknown as { map: { easeTo: ReturnType<typeof vi.fn>; jumpTo: ReturnType<typeof vi.fn> } }).map;
+    ok({ coords: { longitude: 8.3, latitude: 47.0003, heading: null, accuracy: 5 } } as GeolocationPosition);
+    expect(m.easeTo).toHaveBeenCalledTimes(1);
+    const far = () => ok({ coords: { longitude: 8.3, latitude: 47.001 + 0.0108, heading: null, accuracy: 5 } } as GeolocationPosition);
+    far();
+    far();
+    far();
+    expect(m.easeTo).toHaveBeenCalledTimes(1);
+    const warn = ctx.shell.mapContainer.querySelector<HTMLElement>('[aria-live="assertive"]')!;
+    expect(warn.hidden).toBe(false);
+    expect(warn.textContent).toMatch(/^경로에서 1\.\dkm 벗어났어요$/);
+    v.unmount();
+  });
+
+  it("an unreachable course shows the explanation instead of guiding", async () => {
+    const c = course();
+    vi.mocked(loadCourses).mockResolvedValue([{ ...c, reachable: false, routes: { shortest: c.routes.shortest, accessible: null }, blocked_at: [8.3, 47.0005] }]);
+    setGeo(undefined);
+    const ctx = makeCtx();
+    const v = navView("paris", 0);
+    await v.mount(ctx);
+    await flush();
+    vi.advanceTimersByTime(3000);
+    expect(ctx.sheet.el.textContent).toContain("휠체어로 이어지는 길이 없어 길안내를 할 수 없어요");
+    expect(ctx.shell.mapContainer.querySelector(".nav-card")).toBeNull();
+    expect(showUser).not.toHaveBeenCalled();
+    expect(loadSegments).not.toHaveBeenCalled();
+    expect([...ctx.sheet.el.querySelectorAll("a")].map((a) => a.getAttribute("href"))).toContain("#/paris/0");
+    v.unmount();
+  });
+
   it("end button goes back to the course", async () => {
     const ctx = makeCtx();
     const v = navView("paris", 0);
