@@ -1,6 +1,7 @@
 import "pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css";
 import "./styles/tokens.css";
 import "./styles/base.css";
+import "./styles/components.css";
 import { onRouteChange, parseRoute, type Route } from "./router";
 import { mountShell } from "./ui/shell";
 
