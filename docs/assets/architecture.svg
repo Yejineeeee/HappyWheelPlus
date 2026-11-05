@@ -1,43 +1,165 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1118 360" width="1118" height="360" font-family="Pretendard, system-ui, sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" width="2000" height="1910" viewBox="0 0 2000 1910" font-family="Pretendard, 'Malgun Gothic', sans-serif">
   <defs>
-    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
-      <path d="M0,1 L9,5 L0,9" fill="none" stroke="#9CA3AF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <marker id="head" viewBox="0 0 16 16" refX="14" refY="8" markerWidth="16" markerHeight="16" markerUnits="userSpaceOnUse" orient="auto-start-reverse">
+      <path d="M0 0 L16 8 L0 16 Z" fill="#2F6BD3"/>
     </marker>
-    <clipPath id="webClip"><rect x="864" y="60" width="230" height="110" rx="14"/></clipPath>
     <style>
-      .box { fill: #FFFFFF; stroke: #E5E7EB; stroke-width: 1.5; }
-      .title { font-size: 18px; font-weight: 700; fill: #111418; }
-      .desc { font-size: 13px; fill: #6B7280; }
-      .tech { font-size: 12.5px; fill: #9CA3AF; }
-      .arrow { stroke: #9CA3AF; stroke-width: 1.5; fill: none; }
+      .title { font-size: 54px; font-weight: 800; fill: #111; }
+      .name { font-size: 30px; font-weight: 700; fill: #111; }
+      .detail { font-size: 22px; font-weight: 400; fill: #555; }
+      .group { font-size: 27px; font-weight: 700; fill: #2F6BD3; }
+      .alabel { font-size: 22px; font-weight: 500; fill: #2F6BD3; }
+      .footer { font-size: 23px; font-weight: 500; fill: #2F6BD3; }
+      .box { fill: #fff; stroke: #2F6BD3; stroke-width: 2; }
+      .region { fill: #F7FAFE; stroke: #9DBBEA; stroke-width: 2; stroke-dasharray: 9 7; }
+      .ic { fill: none; stroke: #2F6BD3; stroke-width: 3; stroke-linejoin: round; stroke-linecap: round; }
+      .icf { fill: #EAF1FB; stroke: #2F6BD3; stroke-width: 3; stroke-linejoin: round; stroke-linecap: round; }
+      .line { fill: none; stroke: #2F6BD3; stroke-width: 2; }
+      .dash { fill: none; stroke: #2F6BD3; stroke-width: 2; stroke-dasharray: 9 7; }
+      text { text-anchor: middle; }
     </style>
   </defs>
-  <rect x="0" y="0" width="1118" height="360" rx="20" fill="#FFFFFF"/>
-  <rect class="box" x="24" y="60" width="230" height="110" rx="14"/>
-  <text class="title" x="139" y="108" text-anchor="middle">① 데이터</text>
-  <text class="desc" x="139" y="134" text-anchor="middle">OSM · Copernicus DEM · 탐방 기록</text>
-  <path class="arrow" d="M262 115 H296" marker-end="url(#arrow)"/>
-  <rect class="box" x="304" y="60" width="230" height="110" rx="14"/>
-  <text class="title" x="419" y="108" text-anchor="middle">② 분석 파이프라인</text>
-  <text class="desc" x="419" y="134" text-anchor="middle">수집 → 지형 보정 → 채점 → 경로</text>
-  <text class="tech" x="419" y="42" text-anchor="middle">Python</text>
-  <path class="arrow" d="M542 115 H576" marker-end="url(#arrow)"/>
-  <rect class="box" x="584" y="60" width="230" height="110" rx="14"/>
-  <text class="title" x="699" y="108" text-anchor="middle">③ 정적 데이터</text>
-  <text class="desc" x="699" y="134" text-anchor="middle">도시 9개, 버전 해시로 캐시</text>
-  <text class="tech" x="699" y="42" text-anchor="middle">GeoJSON · JSON</text>
-  <path class="arrow" d="M822 115 H856" marker-end="url(#arrow)"/>
-  <rect class="box" x="864" y="60" width="230" height="110" rx="14"/>
-  <rect x="864" y="60" width="230" height="7" fill="#C8F04B" clip-path="url(#webClip)"/>
-  <text class="title" x="979" y="108" text-anchor="middle">④ 웹앱</text>
-  <text class="desc" x="979" y="134" text-anchor="middle">브라우저에서 다시 채점·탐색</text>
-  <text class="tech" x="979" y="42" text-anchor="middle">TypeScript · GitHub Pages</text>
-  <rect class="box" x="744" y="248" width="230" height="76" rx="14"/>
-  <text class="title" x="859" y="280" text-anchor="middle" style="font-size:16px">AI 조건 해석</text>
-  <text class="desc" x="859" y="304" text-anchor="middle">Cloudflare Workers</text>
-  <path class="arrow" d="M934 176 V242" stroke-dasharray="5 5" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
-  <text class="desc" x="946" y="214">선택 기능</text>
-  <path class="arrow" d="M980 286 H1000" marker-end="url(#arrow)"/>
-  <rect x="1006" y="268" width="76" height="36" rx="18" fill="#FFFFFF" stroke="#E5E7EB" stroke-width="1.5"/>
-  <text x="1044" y="291" text-anchor="middle" style="font-size:13px; font-weight:600; fill:#111418">OpenAI</text>
+
+  <rect width="2000" height="1910" fill="#fff"/>
+
+  <text class="title" x="1000" y="105">HappyWheel+ 시스템 구조</text>
+
+  <!-- ===== 데이터 출처 ===== -->
+  <!-- OpenStreetMap: 접힌 지도 + 위치 표시 -->
+  <g transform="translate(160 165)">
+    <path class="icf" d="M4 14 L40 2 L80 14 L116 2 L116 92 L80 104 L40 92 L4 104 Z"/>
+    <path class="ic" d="M40 2 L40 92 M80 14 L80 104"/>
+    <path class="icf" d="M60 70 C50 58 46 51 46 44 A14 14 0 0 1 74 44 C74 51 70 58 60 70 Z" fill="#fff"/>
+    <circle class="ic" cx="60" cy="44" r="4.5"/>
+  </g>
+  <text class="name" x="220" y="320">OpenStreetMap</text>
+  <text class="detail" x="220" y="355">보행망 · 편의시설 태그</text>
+
+  <!-- Copernicus DEM: 산 + 등고선 -->
+  <g transform="translate(460 165)">
+    <path class="icf" d="M4 86 L42 22 L62 52 L78 32 L116 86 Z"/>
+    <path class="ic" d="M32 40 L42 46 L52 38"/>
+    <path class="ic" d="M6 98 C26 90 40 104 60 98 C80 92 94 106 114 98"/>
+    <path class="ic" d="M14 110 C30 104 44 114 60 110 C76 106 90 116 106 110"/>
+  </g>
+  <text class="name" x="520" y="320">Copernicus DEM</text>
+  <text class="detail" x="520" y="355">GLO-30 고도, 30 m 격자</text>
+
+  <!-- 탐방 현장 기록: 클립보드 -->
+  <g transform="translate(768 162)">
+    <rect class="icf" x="8" y="12" width="88" height="100" rx="8"/>
+    <rect class="ic" x="32" y="2" width="40" height="20" rx="5" fill="#fff"/>
+    <path class="ic" d="M24 48 L31 55 L42 42 M52 50 L80 50 M24 78 L31 85 L42 72 M52 80 L80 80"/>
+  </g>
+  <text class="name" x="820" y="320">탐방 현장 기록</text>
+  <text class="detail" x="820" y="355">코스 15개, 현장 평가 10개</text>
+
+  <!-- 출처 → 파이프라인 -->
+  <path class="line" d="M220 380 L220 420 L820 420 L820 380"/>
+
+  <!-- ===== ① 분석 파이프라인 ===== -->
+  <rect class="region" x="110" y="470" width="820" height="620" rx="16"/>
+  <path class="line" d="M520 380 L520 558" marker-end="url(#head)"/>
+
+  <rect class="box" x="300" y="560" width="440" height="104" rx="12"/>
+  <text class="name" x="520" y="604">수집 · 지형 보정</text>
+  <text class="detail" x="520" y="640">OSMnx 보행망, 건물·수목 높이 깎기</text>
+  <path class="line" d="M520 664 L520 718" marker-end="url(#head)"/>
+
+  <rect class="box" x="300" y="720" width="440" height="104" rx="12"/>
+  <text class="name" x="520" y="764">구간 채점</text>
+  <text class="detail" x="520" y="800">경사 · 노면 · 연석 · 정보 없음 감점</text>
+  <path class="line" d="M520 824 L520 878" marker-end="url(#head)"/>
+
+  <rect class="box" x="300" y="880" width="440" height="104" rx="12"/>
+  <text class="name" x="520" y="924">경로 비교</text>
+  <text class="detail" x="520" y="960">NetworkX 최단 vs 휠체어 경로</text>
+
+  <text class="group" x="520" y="1050">① 분석 파이프라인 (Python)</text>
+
+  <!-- ===== ② 웹앱 ===== -->
+  <rect class="region" x="1070" y="470" width="820" height="620" rx="16"/>
+
+  <rect class="box" x="1260" y="560" width="440" height="104" rx="12"/>
+  <text class="name" x="1480" y="604">다시 채점</text>
+  <text class="detail" x="1480" y="640">내 조건 가중치 → 구간 점수</text>
+  <path class="line" d="M1480 664 L1480 718" marker-end="url(#head)"/>
+
+  <rect class="box" x="1260" y="720" width="440" height="104" rx="12"/>
+  <text class="name" x="1480" y="764">경로 탐색</text>
+  <text class="detail" x="1480" y="800">다익스트라, 런던 약 20 ms</text>
+  <path class="line" d="M1480 824 L1480 878" marker-end="url(#head)"/>
+
+  <rect class="box" x="1260" y="880" width="440" height="104" rx="12"/>
+  <text class="name" x="1480" y="924">길안내</text>
+  <text class="detail" x="1480" y="960">GPS · 시뮬레이션 위치 맞춤</text>
+
+  <text class="group" x="1480" y="1050">② 웹앱 (브라우저)</text>
+
+  <!-- ===== 정적 데이터 ===== -->
+  <path class="line" d="M520 1090 L520 1146" marker-end="url(#head)"/>
+  <g transform="translate(450 1150)">
+    <path class="icf" d="M0 20 L0 112 A70 18 0 0 0 140 112 L140 20"/>
+    <path class="ic" d="M0 51 A70 18 0 0 0 140 51 M0 82 A70 18 0 0 0 140 82"/>
+    <ellipse class="ic" cx="70" cy="20" rx="70" ry="18" fill="#fff"/>
+  </g>
+  <text class="name" x="520" y="1335">정적 데이터</text>
+  <text class="detail" x="520" y="1370">도시 9개 GeoJSON · 버전 해시</text>
+
+  <!-- 불러오기: 정적 데이터 → 웹앱 -->
+  <path class="line" d="M596 1216 L1000 1216 L1000 612 L1256 612" marker-end="url(#head)"/>
+  <text class="alabel" x="800" y="1201">불러오기</text>
+
+  <!-- ===== 웹앱 화면 ===== -->
+  <path class="line" d="M1480 1090 L1480 1158" marker-end="url(#head)"/>
+  <g transform="translate(1360 1162)">
+    <rect class="ic" x="0" y="0" width="240" height="150" rx="10" fill="#fff"/>
+    <rect class="icf" x="16" y="16" width="208" height="118" rx="4"/>
+    <path class="ic" d="M40 112 L76 80 L118 92 L150 56 L196 40" stroke-dasharray="1 0"/>
+    <circle class="ic" cx="40" cy="112" r="6" fill="#fff"/>
+    <circle class="ic" cx="196" cy="40" r="6" fill="#2F6BD3"/>
+    <path class="ic" d="M104 150 L96 184 M136 150 L144 184 M78 186 L162 186"/>
+  </g>
+  <text class="name" x="1480" y="1395">HappyWheel+ 웹앱</text>
+  <text class="detail" x="1480" y="1430">TypeScript · MapLibre · GitHub Pages</text>
+
+  <!-- 사용자 -->
+  <g transform="translate(1150 1170)">
+    <circle class="icf" cx="0" cy="28" r="27"/>
+    <path class="icf" d="M-54 126 C-54 92 -32 70 0 70 C32 70 54 92 54 126 Z"/>
+    <path class="ic" d="M-14 72 L0 88 L14 72"/>
+  </g>
+  <text class="name" x="1150" y="1340">사용자</text>
+  <path class="line" d="M1222 1236 L1354 1236" marker-end="url(#head)"/>
+
+  <!-- ===== AI 조건 해석 (선택 기능) ===== -->
+  <path class="dash" d="M1480 1466 L1480 1632 L1072 1632" marker-start="url(#head)" marker-end="url(#head)"/>
+  <text class="alabel" x="1276" y="1614">문장 → 가중치</text>
+  <text class="detail" x="1276" y="1668">경로는 항상 알고리즘이 계산</text>
+
+  <!-- 서버 랙 -->
+  <g transform="translate(935 1555)">
+    <rect class="ic" x="0" y="0" width="130" height="155" rx="10" fill="#fff"/>
+    <rect class="icf" x="16" y="16" width="98" height="26" rx="5"/>
+    <rect class="icf" x="16" y="52" width="98" height="26" rx="5"/>
+    <rect class="icf" x="16" y="88" width="98" height="26" rx="5"/>
+    <circle cx="98" cy="29" r="4" fill="#2F6BD3"/>
+    <circle cx="98" cy="65" r="4" fill="#2F6BD3"/>
+    <circle cx="98" cy="101" r="4" fill="#2F6BD3"/>
+    <path class="ic" d="M30 132 L100 132"/>
+  </g>
+  <text class="name" x="1000" y="1760">AI 조건 해석 서버</text>
+  <text class="detail" x="1000" y="1795">Cloudflare Workers · 하루 한도</text>
+
+  <!-- 서버 → OpenAI -->
+  <path class="line" d="M928 1632 L620 1632" marker-end="url(#head)"/>
+
+  <!-- 구름 -->
+  <g transform="translate(430 1572)">
+    <path class="icf" d="M40 116 C14 116 2 98 2 82 C2 62 18 48 38 50 C42 24 64 6 92 6 C120 6 140 26 144 50 C164 48 178 64 178 84 C178 102 164 116 144 116 Z"/>
+  </g>
+  <text class="name" x="520" y="1760">OpenAI</text>
+  <text class="detail" x="520" y="1795">gpt-4o-mini</text>
+
+  <text class="footer" x="1000" y="1872">GitHub Pages 배포 · 서버 없이 정적 파일로 동작 (AI 해석만 선택 기능)</text>
 </svg>

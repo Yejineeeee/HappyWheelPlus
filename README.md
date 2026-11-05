@@ -73,7 +73,7 @@ OpenStreetMap 보행망 28만여 구간(약 7,853 km)에 경사, 노면, 연석,
 
 ## 🏗 시스템 구조
 
-<p align="center"><img src="docs/assets/architecture.svg" width="900" alt="데이터, 분석 파이프라인, 정적 데이터, 웹앱으로 이어지는 시스템 구조"></p>
+<p align="center"><img src="docs/assets/architecture.png" width="900" alt="데이터, 분석 파이프라인, 정적 데이터, 웹앱으로 이어지는 시스템 구조"></p>
 
 파이프라인이 도시마다 정적 파일을 만들고, 웹앱은 서버 없이 그 파일만 읽는다. 브라우저가 그래프를 직접 들고 있어서 가중치를 바꿔도 서버에 묻지 않고 경로를 다시 계산한다.
 
