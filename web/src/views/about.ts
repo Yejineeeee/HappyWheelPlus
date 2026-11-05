@@ -79,7 +79,7 @@ export function buildAbout(index: CityIndex): HTMLElement {
           "고도: Copernicus DEM GLO-30. © DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018 provided under COPERNICUS by the European Union and ESA; all rights reserved.",
         ],
         ["배경 지도: OpenFreeMap, © OpenMapTiles, © OpenStreetMap contributors."],
-        ["현장 기록: 탐방 때 직접 적은 탐방팀 체감(1~5)와 메모."],
+        ["현장 기록: 탐방 때 직접 적은 탐방팀 체감(1~5)과 메모."],
       ]),
       p("분석 반경은 코스 정류장 평균 위치에서 가장 먼 정류장보다 500m 더 먼 곳까지(최소 3km)이고, 영역은 정사각형이에요."),
     ),

@@ -1,7 +1,21 @@
 /* 지도 컨트롤: 터치 영역 44px, 떠 있는 흰 카드 */
-.maplibregl-ctrl-group button {
+.maplibregl-ctrl .maplibregl-ctrl-group button,
+.maplibregl-ctrl-group button.maplibregl-ctrl-zoom-in,
+.maplibregl-ctrl-group button.maplibregl-ctrl-zoom-out {
   width: 44px;
   height: 44px;
+}
+.maplibregl-ctrl.maplibregl-ctrl-attrib .maplibregl-ctrl-attrib-button {
+  width: 44px;
+  height: 44px;
+}
+/* 지도 컨트롤도 키보드 초점이 보이게 */
+.maplibregl-ctrl button:focus-visible,
+.maplibregl-ctrl .maplibregl-ctrl-attrib-button:focus-visible,
+.maplibregl-ctrl-attrib a:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: -3px;
+  box-shadow: none;
 }
 .maplibregl-ctrl-top-right .maplibregl-ctrl-group:not(:empty) {
   margin: var(--space-3) var(--space-3) 0 0;

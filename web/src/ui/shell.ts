@@ -63,6 +63,7 @@ export function mountShell(root: HTMLElement): Shell {
     (l) =>
       `<a class="header-link" href="${l.href}" aria-label="${l.long}"><span class="label-long">${l.long}</span><span class="label-short" aria-hidden="true">${l.short}</span></a>`,
   ).join("");
+  // 키보드 순서가 헤더, 패널, 지도 컨트롤이 되도록 패널을 지도보다 앞에 둔다(자리는 CSS가 정한다).
   root.innerHTML = `
     <header class="app-header">
       <a class="brand" href="#/">${APP_NAME}</a>
@@ -70,8 +71,8 @@ export function mountShell(root: HTMLElement): Shell {
       <button type="button" class="icon-btn theme-btn" data-role="theme" aria-label="테마 바꾸기"></button>
     </header>
     <div class="app-body" data-layout="default">
-      <div class="map-container" data-role="map"></div>
       <section class="panel" data-role="panel"></section>
+      <div class="map-container" data-role="map"></div>
     </div>`;
 
   const q = <T extends HTMLElement>(role: string) => root.querySelector<T>(`[data-role="${role}"]`)!;

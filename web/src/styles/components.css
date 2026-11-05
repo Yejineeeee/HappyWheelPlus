@@ -57,8 +57,10 @@
 .crumbs a {
   color: var(--muted);
   text-decoration: none;
-  /* 글자는 작아도 누르는 영역은 넉넉하게 */
-  padding: 4px 0;
+  /* 글자는 작아도 누르는 영역은 44px 이상, 줄 높이는 그대로(바깥 여백으로 상쇄) */
+  display: inline-block;
+  padding: 14px 17px;
+  margin: -14px -17px;
 }
 .crumbs a:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
 .crumb-sep { margin: 0 6px; }
