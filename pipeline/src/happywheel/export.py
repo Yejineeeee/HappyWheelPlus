@@ -74,13 +74,14 @@ def _city_metrics(city: City, G, pois: list[dict]) -> dict:
         "area_km2": round(area, 3),
         "poi_per_km2": {k: round(counts[k] / area, 4) for k in POI_KINDS},
         "surface_mix": {k: round(v / t, 4) for k, v in mix.items()},
-        "_course_count": len(city.courses),
+        "course_count": len(city.courses),
     }
 
 
 def build_city_outputs(city: City, G: nx.MultiGraph, pois: list[dict],
                        src: ElevationSource) -> tuple[dict[str, object], dict]:
-    """Return (filename -> JSON object, per-city metrics for build_cities_index)."""
+    """Return a tuple (outputs, metrics): filename -> JSON object, and the per-city
+    metrics dict (incl. course_count) to pass to build_cities_index."""
     node_idx = {n: i for i, n in enumerate(G.nodes)}
     nodes = [_pt((G.nodes[n]["x"], G.nodes[n]["y"])) for n in G.nodes]
 
@@ -163,12 +164,12 @@ def build_cities_index(cities: list[City], per_city_metrics: dict[str, dict]) ->
     for c in cities:
         if c.id not in per_city_metrics:
             continue
-        m = dict(per_city_metrics[c.id])
-        count = m.pop("_course_count", len(c.courses))
+        m = per_city_metrics[c.id]
         out.append({
             "id": c.id, "name_ko": c.name_ko, "country_ko": c.country_ko,
             "center": _pt(c.center), "radius_m": round(c.radius_m, 1),
-            "metrics": m, "course_count": count,
+            "metrics": {k: v for k, v in m.items() if k != "course_count"},
+            "course_count": m["course_count"],
         })
     return {
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),

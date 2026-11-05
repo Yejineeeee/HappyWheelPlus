@@ -33,12 +33,16 @@ def fetch_pois(city: City, cache_dir: Path) -> list[dict]:
     if path.exists():
         return json.loads(path.read_text(encoding="utf-8"))
     import osmnx as ox
+    from osmnx._errors import InsufficientResponseError
 
     ox.settings.cache_folder = str(cache_dir / "osmnx")
     lon, lat = city.center
-    gdf = ox.features_from_point((lat, lon), tags=_TAGS, dist=city.radius_m)
+    try:
+        gdf = ox.features_from_point((lat, lon), tags=_TAGS, dist=city.radius_m)
+    except InsufficientResponseError:
+        gdf = None
     pois: list[dict] = []
-    for idx, row in gdf.iterrows():
+    for idx, row in (gdf.iterrows() if gdf is not None else ()):
         kind = _kind(row)
         geom = row.geometry
         if kind is None or geom is None or geom.is_empty:

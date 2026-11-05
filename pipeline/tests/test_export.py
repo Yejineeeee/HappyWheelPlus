@@ -105,3 +105,25 @@ def test_coordinate_precision(built):
             assert round(x, 5) == x and round(y, 5) == y
     for x, y in out["courses.json"][0]["routes"]["shortest"]["coords"]:
         assert round(x, 5) == x and round(y, 5) == y
+
+
+def test_metrics_course_count_public(built):
+    assert built[3]["course_count"] == 2 and "_course_count" not in built[3]
+    city = built[0]
+    m = build_cities_index([city], {city.id: built[3]})["cities"][0]
+    assert "course_count" not in m["metrics"] and m["course_count"] == 2
+
+
+def test_fetch_pois_empty_result(tmp_path, monkeypatch):
+    import osmnx as ox
+    from osmnx._errors import InsufficientResponseError
+
+    from happywheel.pois import fetch_pois
+
+    def boom(*a, **k):
+        raise InsufficientResponseError("none")
+    monkeypatch.setattr(ox, "features_from_point", boom)
+    city = City("emptyville", "x", "y", (Course("c", "t", (Stop("s", 1.0, 2.0),), None),),
+                center=(1.0, 2.0), radius_m=3000.0)
+    assert fetch_pois(city, tmp_path) == []
+    assert json.loads((tmp_path / "emptyville_pois.json").read_text(encoding="utf-8")) == []
