@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { POI_ICON_CSS_PX, POI_PIXEL_RATIO, SCORE_STOPS, poiCanvasSize, mapStyleUrl, scoreColorExpression } from "../src/map/style";
+import positron from "./fixtures/style-positron-layers.json";
+import dark from "./fixtures/style-dark-layers.json";
+import { segmentAnchor, POI_ICON_CSS_PX, POI_PIXEL_RATIO, SCORE_STOPS, poiCanvasSize, mapStyleUrl, scoreColorExpression } from "../src/map/style";
 
 describe("map style helpers", () => {
   it("scoreColorExpression uses token stops in order", () => {
@@ -23,5 +25,38 @@ describe("map style helpers", () => {
     expect(POI_ICON_CSS_PX).toBe(32);
     expect(poiCanvasSize()).toBe(POI_ICON_CSS_PX * POI_PIXEL_RATIO);
     expect(poiCanvasSize()).toBe(64);
+  });
+});
+
+describe("segmentAnchor", () => {
+  const idx = (l: { id: string }[], id: string) => l.findIndex((x) => x.id === id);
+  const lastRoad = (l: { type: string; "source-layer"?: string }[]) =>
+    l.reduce((n, x, i) => (x.type === "line" && x["source-layer"] === "transportation" ? i : n), -1);
+
+  it("anchors right after the last transportation line in both styles", () => {
+    for (const style of [positron, dark]) {
+      const a = segmentAnchor(style);
+      expect(a).toBeDefined();
+      expect(idx(style, a!)).toBe(lastRoad(style) + 1);
+    }
+  });
+
+  it("dark: road name labels stay above the anchor", () => {
+    const a = idx(dark, segmentAnchor(dark)!);
+    expect(idx(dark, "highway_name_other")).toBeGreaterThanOrEqual(a);
+    expect(idx(dark, "highway_name_motorway")).toBeGreaterThanOrEqual(a);
+    expect(idx(dark, "place_city")).toBeGreaterThanOrEqual(a);
+  });
+
+  it("positron: road names and place labels stay above the anchor", () => {
+    const a = idx(positron, segmentAnchor(positron)!);
+    for (const id of ["highway-name-minor", "highway-name-major", "label_city"]) {
+      expect(idx(positron, id)).toBeGreaterThanOrEqual(a);
+    }
+  });
+
+  it("falls back to the first symbol layer, then to undefined", () => {
+    expect(segmentAnchor([{ id: "a", type: "fill" }, { id: "b", type: "symbol" }])).toBe("b");
+    expect(segmentAnchor([{ id: "a", type: "fill" }])).toBeUndefined();
   });
 });

@@ -58,3 +58,25 @@ export const POI_PIXEL_RATIO = 2;
 export function poiCanvasSize(): number {
   return POI_ICON_CSS_PX * POI_PIXEL_RATIO;
 }
+
+export interface StyleLayerInfo {
+  id: string;
+  type: string;
+  "source-layer"?: string;
+}
+
+/**
+ * 구간 히트맵을 끼워 넣을 기준 레이어 id(이 레이어 바로 앞에 넣는다). undefined면 맨 위.
+ * 기본 지도의 마지막 도로 선(OpenMapTiles transportation 선 레이어) 바로 뒤에 두어, 도로 위·도로명 글자 아래가 되게 한다.
+ * 도로 선 사이에 섞여 있는 일방통행 화살표 글자는 히트맵 아래로 갈 수 있다(감수한 절충).
+ * 도로 선 레이어가 없으면 첫 글자 레이어 앞, 그것도 없으면 undefined.
+ * `layers`에는 앱이 추가한 레이어를 넣지 않는다.
+ */
+export function segmentAnchor(layers: StyleLayerInfo[]): string | undefined {
+  let last = -1;
+  layers.forEach((l, i) => {
+    if (l.type === "line" && l["source-layer"] === "transportation") last = i;
+  });
+  if (last >= 0) return layers[last + 1]?.id;
+  return layers.find((l) => l.type === "symbol")?.id;
+}

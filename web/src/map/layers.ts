@@ -3,7 +3,14 @@ import { Armchair, ArrowUpDown, Bath, Droplet } from "lucide";
 import type { CityEntry, PoiKind } from "../data/types";
 import type { AppMap } from "./map";
 import { prefersReducedMotion } from "./map";
-import { POI_PIXEL_RATIO, poiCanvasSize, scoreColor, scoreColorExpression } from "./style";
+import {
+  POI_PIXEL_RATIO,
+  poiCanvasSize,
+  scoreColor,
+  scoreColorExpression,
+  segmentAnchor,
+  type StyleLayerInfo,
+} from "./style";
 
 type LngLat = [number, number];
 type Stop = { name: string; lon: number; lat: number };
@@ -79,21 +86,16 @@ const LAYER_ORDER = [
 ];
 
 /**
- * 구간 히트맵은 기본 지도의 글자(지명·도로명) 아래, 앱의 편의시설·경로 레이어 아래에 둔다.
+ * 구간 히트맵은 기본 지도의 도로 선 위·글자 아래(segmentAnchor), 앱의 편의시설·경로 레이어 아래에 둔다.
  * 편의시설·경로는 LAYER_ORDER 순서(아래→위)가 유지되도록 이미 있는 더 위 레이어 바로 앞에 끼워 넣는다.
  */
 function addOrdered(map: maplibregl.Map, layer: maplibregl.LayerSpecification): void {
-  const i = LAYER_ORDER.indexOf(layer.id);
-  const upperApp = LAYER_ORDER.slice(i + 1).find((id) => map.getLayer(id));
+  const pos = LAYER_ORDER.indexOf(layer.id);
+  const upperApp = LAYER_ORDER.slice(pos + 1).find((id) => map.getLayer(id));
   let before = upperApp;
   if (layer.id.startsWith("segments-")) {
-    // 기본 지도 레이어 중 마지막 도형(도로·건물 등) 위, 그 뒤 첫 글자 레이어 앞. 글자 레이어가 도로보다 앞에 섞여 있어도 도로 위에 놓인다.
     const base = map.getStyle().layers.filter((l) => !LAYER_ORDER.includes(l.id));
-    let lastShape = -1;
-    base.forEach((l, i) => {
-      if (l.type !== "symbol" && l.type !== "background") lastShape = i;
-    });
-    before = base.slice(lastShape + 1).find((l) => l.type === "symbol")?.id ?? upperApp;
+    before = segmentAnchor(base as StyleLayerInfo[]) ?? upperApp;
   }
   map.addLayer(layer, before);
 }
