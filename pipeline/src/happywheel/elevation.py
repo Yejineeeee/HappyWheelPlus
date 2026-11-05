@@ -17,6 +17,11 @@ TILE_URL = "https://copernicus-dem-30m.s3.amazonaws.com/{name}/{name}.tif"
 
 DOWNLOAD_ATTEMPTS = 3
 
+# Copernicus GLO-30 is a surface model (buildings/trees included). Grey opening removes
+# features narrower than the window, the gaussian smooths the staircase it leaves.
+TERRAIN_OPENING_PX = 5
+TERRAIN_SIGMA_PX = 1.5
+
 
 class IncompleteDownload(OSError):
     pass
@@ -33,9 +38,48 @@ def tile_name(lat_floor: int, lon_floor: int) -> str:
             f"{ew}{abs(lon_floor):03d}_00_DEM")
 
 
+def terrain_correct(arr: np.ndarray, nodata: float | None) -> np.ndarray:
+    """Suppress buildings/trees: grey opening then gaussian smoothing. Invalid pixels stay NaN."""
+    from scipy import ndimage
+    a = np.asarray(arr, dtype=float).copy()
+    invalid = ~np.isfinite(a) | (a < -1000)
+    if nodata is not None:
+        invalid |= a == nodata
+    if invalid.all():
+        return np.full(a.shape, np.nan)
+    # fill invalid pixels with the valid max so they never pull valid neighbours down in the
+    # opening. The gaussian also smooths the filled array, so there is a small edge effect
+    # (values pulled up) within ~2 px of coast/nodata; invalid pixels are restored to NaN after.
+    a[invalid] = a[~invalid].max()
+    a = ndimage.grey_opening(a, size=(TERRAIN_OPENING_PX, TERRAIN_OPENING_PX))
+    a = ndimage.gaussian_filter(a, sigma=TERRAIN_SIGMA_PX)
+    a[invalid] = np.nan
+    return a
+
+
+def sample_bilinear(arr: np.ndarray, transform, lonlats) -> list[float | None]:
+    """Bilinear elevation at lon/lat points; None if any of the 4 neighbours is NaN."""
+    from scipy import ndimage
+    if len(lonlats) == 0:
+        return []
+    inv = ~transform
+    xy = [inv @ (float(lon), float(lat)) for lon, lat in lonlats]
+    cols = np.array([p[0] for p in xy]) - 0.5  # pixel-centre coordinates
+    rows = np.array([p[1] for p in xy]) - 0.5
+    cols = np.clip(cols, 0, arr.shape[1] - 1)
+    rows = np.clip(rows, 0, arr.shape[0] - 1)
+    nan = np.isnan(arr)
+    filled = np.where(nan, 0.0, arr)
+    vals = ndimage.map_coordinates(filled, [rows, cols], order=1, mode="nearest")
+    bad = ndimage.map_coordinates(nan.astype(float), [rows, cols], order=1, mode="nearest") > 0
+    return [None if b else float(v) for v, b in zip(vals, bad)]
+
+
 class CopernicusDEM:
-    def __init__(self, bbox: tuple[float, float, float, float], cache_dir: Path):
+    def __init__(self, bbox: tuple[float, float, float, float], cache_dir: Path,
+                 correct_terrain: bool = True):
         self.bbox = bbox
+        self.correct_terrain = correct_terrain
         self.dem_dir = Path(cache_dir) / "dem"
         self.dem_dir.mkdir(parents=True, exist_ok=True)
         self._tiles: dict[str, tuple | None] = {}
@@ -113,7 +157,12 @@ class CopernicusDEM:
                 return None
             ds = rasterio.open(path)
         with ds:
-            return (ds.read(1), ds.transform, ds.nodata)
+            arr, transform, nodata = ds.read(1), ds.transform, ds.nodata
+        if self.correct_terrain:
+            arr = terrain_correct(arr, nodata)
+        else:
+            arr = np.array(self._clean_array(arr, nodata))
+        return (arr, transform, nodata)
 
     def _tile(self, lat_floor: int, lon_floor: int):
         name = tile_name(lat_floor, lon_floor)
@@ -132,8 +181,16 @@ class CopernicusDEM:
                 out.append(v)
         return out
 
+    @staticmethod
+    def _clean_array(arr, nodata):
+        a = np.asarray(arr, dtype=float).copy()
+        bad = ~np.isfinite(a) | (a < -1000)
+        if nodata is not None:
+            bad |= a == nodata
+        a[bad] = np.nan
+        return a
+
     def elevations(self, lonlats):
-        from rasterio.transform import rowcol
         result: list[float | None] = [None] * len(lonlats)
         groups: dict[tuple[int, int], list[int]] = {}
         for i, (lon, lat) in enumerate(lonlats):
@@ -142,13 +199,8 @@ class CopernicusDEM:
             tile = self._tile(latf, lonf)
             if tile is None:
                 continue
-            arr, transform, nodata = tile
-            xs = [lonlats[i][0] for i in idxs]
-            ys = [lonlats[i][1] for i in idxs]
-            rows, cols = rowcol(transform, xs, ys)
-            rows = np.clip(np.asarray(rows), 0, arr.shape[0] - 1)
-            cols = np.clip(np.asarray(cols), 0, arr.shape[1] - 1)
-            vals = self._clean(arr[rows, cols].tolist(), nodata)
+            arr, transform, _ = tile
+            vals = sample_bilinear(arr, transform, [lonlats[i] for i in idxs])
             for i, v in zip(idxs, vals):
                 result[i] = v
         return result

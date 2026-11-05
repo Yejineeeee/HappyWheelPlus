@@ -30,7 +30,7 @@ def fetch_network(city: City, cache_dir: Path) -> nx.MultiGraph:
     import osmnx as ox
 
     cache_dir = Path(cache_dir)
-    path = cache_dir / f"{city.id}_walk.graphml"
+    path = cache_dir / f"{city.id}_walk_v2.graphml"
     if path.exists():
         return ox.load_graphml(path)
     ox.settings.useful_tags_way = USEFUL_WAY_TAGS
@@ -38,7 +38,10 @@ def fetch_network(city: City, cache_dir: Path) -> nx.MultiGraph:
     ox.settings.cache_folder = str(cache_dir / "osmnx")
     lon, lat = city.center
     G = ox.graph_from_point((lat, lon), dist=city.radius_m, network_type="walk",
-                            simplify=True, retain_all=False)
+                            simplify=False, retain_all=False)
+    # keep steps/bridges/ramps etc. from being merged into neighbouring footways
+    G = ox.simplify_graph(G, edge_attrs_differ=[
+        "highway", "surface", "wheelchair", "ramp", "bridge", "tunnel"])
     G = ox.convert.to_undirected(G)
     cache_dir.mkdir(parents=True, exist_ok=True)
     ox.save_graphml(G, path)

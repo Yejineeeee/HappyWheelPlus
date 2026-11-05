@@ -1,7 +1,10 @@
+import numpy as np
 import pytest
+from affine import Affine
 from fixtures import Holes, Plane
 
-from happywheel.elevation import CopernicusDEM, edge_grade, profile, tile_name
+from happywheel.elevation import (CopernicusDEM, edge_grade, profile, sample_bilinear,
+                                  terrain_correct, tile_name)
 from happywheel.geo import GEOD, line_length_m, sample_along, point_line_distance_m
 
 LON0, LAT0 = 2.33, 48.86
@@ -157,3 +160,47 @@ def test_corrupt_cached_tile_is_evicted(tmp_path, monkeypatch, tif_bytes):
     dem = CopernicusDEM(BBOX, tmp_path)
     assert (tmp_path / "dem" / TILE).read_bytes() == tif_bytes
     assert dem.elevations([(2.01, 48.99)]) == [pytest.approx(40.0)]
+
+
+def test_terrain_correct_removes_building_spike():
+    arr = np.full((20, 20), 100.0)
+    arr[8:11, 8:11] = 130.0
+    out = terrain_correct(arr, None)
+    assert out[9, 9] == pytest.approx(100.0, abs=1.0)
+
+
+def test_terrain_correct_keeps_slope():
+    arr = np.tile(np.arange(20, dtype=float) * 3.0, (20, 1))
+    out = terrain_correct(arr, None)
+    assert np.nanmean(np.diff(out[10, 5:15])) == pytest.approx(3.0, abs=0.3)
+
+
+def test_terrain_correct_preserves_nodata():
+    arr = np.full((10, 10), 50.0)
+    arr[0, 0] = -32767.0
+    out = terrain_correct(arr, -32767.0)
+    assert np.isnan(out[0, 0]) and out[5, 5] == pytest.approx(50.0)
+
+
+# 10x10 tile, 0.001 deg pixels, upper-left corner at (10.0, 50.0); value = 10 * col
+TF = Affine(0.001, 0, 10.0, 0, -0.001, 50.0)
+
+
+def _slope_arr():
+    return np.tile(np.arange(10, dtype=float) * 10.0, (10, 1))
+
+
+def test_bilinear_sampling_between_pixels():
+    arr = _slope_arr()
+    # centres of cols 3 and 4 are at lon 10.0035 / 10.0045; row 5 centre lat = 49.9945
+    v = sample_bilinear(arr, TF, [(10.004, 49.9945), (10.0035, 49.9945)])
+    assert v[0] == pytest.approx(35.0)
+    assert v[1] == pytest.approx(30.0)
+
+
+def test_bilinear_none_near_nodata():
+    arr = _slope_arr()
+    arr[5, 4] = np.nan
+    v = sample_bilinear(arr, TF, [(10.004, 49.9945), (10.0085, 49.9945)])
+    assert v[0] is None
+    assert v[1] == pytest.approx(80.0)

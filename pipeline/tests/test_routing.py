@@ -123,3 +123,18 @@ def test_metrics_values():
     assert m["mean_score"] is not None
     m2 = route_metrics(G, route(G, [A, C], "accessible"), [])
     assert m2["cobble_m"] > 0
+
+
+def test_exempt_steps_not_counted():
+    G, n = make_route_graph()
+    G.edges[7, 8, 0]["ramp"] = "yes"
+    annotate(G, Plane(0))
+    r = route(G, [node_lonlat(G, 6), node_lonlat(G, 8)], "shortest")
+    assert any(G.edges[e]["steps"] for e in r.edges)
+    assert not any(G.edges[e]["blocked"] for e in r.edges)
+    assert route_metrics(G, r, [])["steps_count"] == 0
+
+
+def test_blocked_steps_counted_on_shortest(env):
+    G, A, C, D = env
+    assert route_metrics(G, route(G, [A, C], "shortest"), [])["steps_count"] == 1

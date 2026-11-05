@@ -97,7 +97,8 @@ def route_metrics(G: nx.MultiGraph, r: RouteResult,
                         if point_line_distance_m(t, r.coords) <= TOILET_RADIUS_M)
     return {
         "length_m": float(sum(d["length"] for d in ds)),
-        "steps_count": sum(1 for d in ds if d.get("steps")),
+        # only impassable steps count; ramp/wheelchair=yes steps are passable
+        "steps_count": sum(1 for d in ds if d.get("steps") and d.get("blocked")),
         "max_grade_pct": max(grades) if grades else None,
         "steep_m": float(sum(d["length"] for d in ds
                              if d.get("grade_max") is not None and d["grade_max"] >= STEEP_GRADE)),

@@ -85,3 +85,18 @@ def test_elevations_batched():
 ])
 def test_parse_incline(raw, exp):
     assert parse_incline(raw) == exp
+
+
+def test_fetch_uses_v2_cache_name(tmp_path, monkeypatch):
+    import osmnx as ox
+    from happywheel.config import City
+    from happywheel.network import fetch_network
+    from fixtures import make_grid_graph
+    G = make_grid_graph()
+    city = City("testcity", "테스트", "테스트", (), (2.33, 48.86), 3000.0)
+    ox.save_graphml(G, tmp_path / "testcity_walk_v2.graphml")
+
+    def boom(*a, **k):
+        raise AssertionError("network fetched")
+    monkeypatch.setattr(ox, "graph_from_point", boom)
+    assert fetch_network(city, tmp_path).number_of_nodes() == 9
