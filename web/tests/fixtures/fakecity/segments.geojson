@@ -1,0 +1,1 @@
+{"type":"FeatureCollection","features":[{"type":"Feature","id":0,"geometry":{"type":"LineString","coordinates":[[2.33,48.86],[2.33136,48.86]]},"properties":{"len":100.0,"p_slope":0.0,"p_surface":0.0,"p_kerb":0.0,"p_unc":0.0,"grade_max":null,"surface_class":"unknown","wc_yes":false,"steps":false,"blocked":false,"span":false,"score":100.0}}]}
