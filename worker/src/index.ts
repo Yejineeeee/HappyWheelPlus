@@ -42,6 +42,11 @@ function log(status: number, city: string, length: number): void {
 }
 
 async function handleWeights(request: Request, env: Env, origin: string): Promise<Response> {
+  const declared = Number.parseInt(request.headers.get("Content-Length") ?? "", 10);
+  if (Number.isFinite(declared) && declared > MAX_BODY_BYTES) {
+    log(413, "-", declared);
+    return json(413, { error: "too_long" }, origin);
+  }
   const raw = await request.text();
   if (new TextEncoder().encode(raw).length > MAX_BODY_BYTES) {
     log(413, "-", raw.length);
@@ -67,13 +72,20 @@ async function handleWeights(request: Request, env: Env, origin: string): Promis
   }
 
   const ip = request.headers.get("CF-Connecting-IP") || "unknown";
-  const ok = await takeQuota(
-    env.LIMITS,
-    ip,
-    new Date(),
-    intVar(env.DAILY_LIMIT_PER_IP, 5),
-    intVar(env.DAILY_LIMIT_TOTAL, 300),
-  );
+  let ok: boolean;
+  try {
+    ok = await takeQuota(
+      env.LIMITS,
+      ip,
+      new Date(),
+      intVar(env.DAILY_LIMIT_PER_IP, 5),
+      intVar(env.DAILY_LIMIT_TOTAL, 300),
+    );
+  } catch {
+    // KV 오류 시에는 OpenAI를 호출하지 않는다(비용 방어).
+    log(503, city, text.length);
+    return json(503, { error: "server" }, origin);
+  }
   if (!ok) {
     log(429, city, text.length);
     return json(429, { error: "rate_limited" }, origin);
@@ -114,6 +126,11 @@ export default {
     }
     if (request.method !== "POST") return json(405, { error: "method_not_allowed" }, origin);
     if (!origin) return json(403, { error: "forbidden" }, null);
-    return handleWeights(request, env, origin);
+    try {
+      return await handleWeights(request, env, origin);
+    } catch {
+      log(500, "-", 0);
+      return json(500, { error: "server" }, origin);
+    }
   },
 };

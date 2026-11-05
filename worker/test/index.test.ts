@@ -187,3 +187,53 @@ describe("서버 오류와 로그", () => {
     expect(all).not.toContain("test-key");
   });
 });
+
+describe("오류 처리 보강", () => {
+  it("KV get 실패는 503, CORS 있고 OpenAI 호출 없음", async () => {
+    const env = makeEnv();
+    env.LIMITS.get = async () => {
+      throw new Error("kv down");
+    };
+    const res = await call(post({ city: "paris", text: "a" }), env);
+    expect(res.status).toBe(503);
+    expect(await res.json()).toEqual({ error: "server" });
+    expect(res.headers.get("Access-Control-Allow-Origin")).toBe(ORIGIN);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+  it("KV put 실패(쓰기 제한)도 503", async () => {
+    const env = makeEnv();
+    env.LIMITS.put = async () => {
+      throw new Error("429 too many writes");
+    };
+    const res = await call(post({ city: "paris", text: "a" }), env);
+    expect(res.status).toBe(503);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+  it("예상 못한 예외는 500, CORS 있고 오류 문구 없음", async () => {
+    const req = post({ city: "paris", text: "a" });
+    Object.defineProperty(req, "text", {
+      value: async () => {
+        throw new Error("secret detail");
+      },
+    });
+    const res = await call(req);
+    expect(res.status).toBe(500);
+    expect(res.headers.get("Access-Control-Allow-Origin")).toBe(ORIGIN);
+    expect(await res.text()).toBe(JSON.stringify({ error: "server" }));
+  });
+  it("Content-Length 5000이면 본문을 읽지 않고 413", async () => {
+    const req = post({ city: "paris", text: "a" }, { "Content-Length": "5000" });
+    const spy = vi.fn(async () => "");
+    Object.defineProperty(req, "text", { value: spy });
+    const res = await call(req);
+    expect(res.status).toBe(413);
+    expect(spy).not.toHaveBeenCalled();
+  });
+  it("프롬프트의 따옴표 세 개는 치환된다", async () => {
+    await call(post({ city: "paris", text: 'a """ b' }));
+    const body = JSON.parse((fetchMock.mock.calls[0] as [string, RequestInit])[1].body as string);
+    const user = body.messages[1].content as string;
+    expect(user).toContain("a '' b");
+    expect(user.match(/"""/g)?.length).toBe(2);
+  });
+});

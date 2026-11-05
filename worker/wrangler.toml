@@ -3,6 +3,8 @@ main = "src/index.ts"
 compatibility_date = "2026-10-01"
 
 [vars]
+# 주의: gpt-5, o 시리즈 모델은 temperature, max_tokens를 받지 않는다.
+# 모델을 바꿀 때는 이 값을 지원하는 모델을 쓰거나 src/openai.ts를 함께 고친다.
 OPENAI_MODEL = "gpt-4o-mini"
 ALLOWED_ORIGINS = "https://yejineeeee.github.io,http://localhost:5173,http://localhost:4173"
 DAILY_LIMIT_PER_IP = "5"
