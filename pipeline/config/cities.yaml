@@ -1,6 +1,7 @@
 - id: london
   name_ko: 런던
   country_ko: 영국
+  radius_m: 2700  # 3000 m에서는 gzip 2.18 MB로 한도 초과
   courses:
     - name: "사우스뱅크 무계단 루프"
       time_label: "~90분"
@@ -20,6 +21,7 @@
 - id: paris
   name_ko: 파리
   country_ko: 프랑스
+  radius_m: 1800  # 3000 m에서는 gzip 2.24 MB로 한도 초과 (가장 먼 정류장 1258 m + 500 m)
   courses:
     - name: "루브르–뛸르리–오랑주리"
       time_label: "~60분"
