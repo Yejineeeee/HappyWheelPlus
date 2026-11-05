@@ -1,4 +1,5 @@
 import {
+  Accessibility,
   AlertTriangle,
   Armchair,
   ArrowLeft,
@@ -20,6 +21,7 @@ import {
 type IconNode = [string, Record<string, string | number>][];
 
 const ICONS = {
+  accessibility: Accessibility,
   "alert-triangle": AlertTriangle,
   armchair: Armchair,
   "arrow-left": ArrowLeft,
@@ -39,6 +41,7 @@ const ICONS = {
 } as unknown as Record<string, IconNode>;
 
 export type IconName =
+  | "accessibility"
   | "alert-triangle"
   | "armchair"
   | "arrow-left"

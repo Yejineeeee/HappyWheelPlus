@@ -1,13 +1,25 @@
 :root {
-  --bg: #f6f6f3;
+  /* 바탕과 면 */
+  --bg: #eef0f2;
   --surface: #ffffff;
-  --ink: #1b1f24;
+  --surface-2: #f4f5f7;
+  --line: #e3e6ea;
+  --ink: #111418;
   --muted: #5b636e;
-  --line: #e2e4e8;
-  --accent: #1f5fd1;
+
+  /* 강조: 잉크 검정(버튼·선택)과 라임(배경 전용, 위 글자는 검정) */
+  --accent: #111418;
+  --on-accent: #ffffff;
+  --lime: #c8f04b;
+  --on-lime: #111418;
+  --focus: #111418;
+
+  /* 지도 경로 */
+  --route-acc: #111418;
   --route-short: #6b7280;
   --blocked: #b4235a;
-  --warn: #9a5b00;
+  --warn: #8f5400;
+  --warn-bg: #fff1dc;
 
   --score-0: #440154;
   --score-30: #414487;
@@ -15,25 +27,50 @@
   --score-80: #22a884;
   --score-100: #7ad151;
 
+  /* 크기 */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --radius-sm: 10px;
+  --radius-card: 16px;
+  --radius-panel: 20px;
+  --radius-pill: 999px;
+  --shadow: 0 1px 2px rgb(17 20 24 / 0.06), 0 8px 24px rgb(17 20 24 / 0.08);
+  --gutter: 16px;
+
   --panel-width: 400px;
   --header-h: 56px;
   --sheet-collapsed: 132px;
   --sheet-half: 50vh;
   --sheet-full: 88vh;
-  --radius: 16px;
+  --radius: var(--radius-card);
   --font: "Pretendard Variable", Pretendard, system-ui, -apple-system, "Segoe UI", sans-serif;
   color-scheme: light;
 }
 
 :root[data-theme="dark"] {
-  --bg: #111418;
+  --bg: #0e1013;
   --surface: #1a1e24;
+  --surface-2: #242930;
+  --line: #2f353e;
   --ink: #eceef1;
   --muted: #a3abb5;
-  --line: #2c323a;
-  --accent: #7fa8ff;
+
+  --accent: #c8f04b;
+  --on-accent: #111418;
+  --lime: #c8f04b;
+  --on-lime: #111418;
+  --focus: #c8f04b;
+
+  --route-acc: #c8f04b;
   --route-short: #9aa1ab;
   --blocked: #ff6b9a;
   --warn: #ffb84d;
+  --warn-bg: #3a2c14;
+
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px rgb(0 0 0 / 0.35);
   color-scheme: dark;
 }

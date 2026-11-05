@@ -28,7 +28,7 @@ function currentTheme(): "light" | "dark" {
 function applyTheme(t: "light" | "dark"): void {
   document.documentElement.setAttribute("data-theme", t);
   const meta = document.querySelector('meta[name="theme-color"]');
-  meta?.setAttribute("content", t === "dark" ? "#111418" : "#f6f6f3");
+  meta?.setAttribute("content", t === "dark" ? "#0e1013" : "#eef0f2");
 }
 
 export function mountShell(root: HTMLElement): Shell {
@@ -37,6 +37,7 @@ export function mountShell(root: HTMLElement): Shell {
   root.innerHTML = `
     <header class="app-header">
       <button type="button" class="icon-btn" data-role="back" aria-label="뒤로" hidden></button>
+      <span class="brand-mark" data-role="mark" aria-hidden="true"></span>
       <h1 data-role="title">HappyWheel+</h1>
       <button type="button" class="icon-btn" data-role="theme" aria-label="테마 바꾸기"></button>
     </header>
@@ -54,6 +55,7 @@ export function mountShell(root: HTMLElement): Shell {
   const themeListeners: ((t: "light" | "dark") => void)[] = [];
 
   backBtn.append(icon("arrow-left"));
+  q("mark").append(icon("accessibility", 18));
   const syncThemeIcon = () => {
     const dark = document.documentElement.getAttribute("data-theme") === "dark";
     themeBtn.replaceChildren(icon(dark ? "sun" : "moon"));

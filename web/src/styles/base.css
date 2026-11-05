@@ -14,10 +14,11 @@ body {
   background: var(--bg);
   color: var(--ink);
   font-family: var(--font);
-  font-size: 16px;
+  font-size: 15px;
   line-height: 1.5;
   font-variant-numeric: tabular-nums;
   -webkit-text-size-adjust: 100%;
+  -webkit-font-smoothing: antialiased;
 }
 
 button {
@@ -26,7 +27,7 @@ button {
 }
 
 :focus-visible {
-  outline: 3px solid var(--accent);
+  outline: 3px solid var(--focus);
   outline-offset: 2px;
 }
 
@@ -37,23 +38,37 @@ button {
   flex-direction: column;
 }
 
+/* 헤더: 바탕과 같은 색, 로고 마크 + 제목 + 테마 토글 */
 .app-header {
   flex: none;
   height: var(--header-h);
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 0 8px;
-  background: var(--surface);
-  border-bottom: 1px solid var(--line);
+  gap: var(--space-2);
+  padding: 0 var(--space-2);
+  background: var(--bg);
   z-index: 30;
+}
+
+.brand-mark {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  background: var(--lime);
+  color: var(--on-lime);
 }
 
 .app-header h1 {
   flex: 1;
+  min-width: 0;
   margin: 0;
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 700;
+  letter-spacing: -0.01em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -66,14 +81,14 @@ button {
   align-items: center;
   justify-content: center;
   border: 0;
-  border-radius: 12px;
+  border-radius: var(--radius-pill);
   background: transparent;
   cursor: pointer;
   font-size: 20px;
 }
 
 .icon-btn:hover {
-  background: var(--line);
+  background: var(--surface);
 }
 
 .icon-btn[hidden] {
@@ -89,9 +104,10 @@ button {
 .map-container {
   position: absolute;
   inset: 0;
-  background: var(--line);
+  background: var(--surface-2);
 }
 
+/* 좁은 화면: 지도 전체 + 둥근 상단의 하단 시트 */
 .panel {
   position: absolute;
   left: 0;
@@ -101,15 +117,26 @@ button {
   min-height: var(--sheet-collapsed);
   overflow-y: auto;
   background: var(--surface);
-  border-radius: var(--radius) var(--radius) 0 0;
-  box-shadow: 0 -4px 16px rgb(0 0 0 / 0.15);
+  border-radius: var(--radius-panel) var(--radius-panel) 0 0;
+  box-shadow: 0 -2px 4px rgb(17 20 24 / 0.04), 0 -8px 24px rgb(17 20 24 / 0.1);
   z-index: 20;
 }
 
+/* 넓은 화면: 바탕 위에 떠 있는 패널과 둥근 지도 프레임 */
 @media (min-width: 1024px) {
+  .app-header {
+    padding: 0 var(--gutter);
+  }
+
+  .app-header h1 {
+    font-size: 22px;
+  }
+
   .app-body {
     display: grid;
     grid-template-columns: var(--panel-width) 1fr;
+    gap: var(--gutter);
+    padding: 0 var(--gutter) var(--gutter);
   }
 
   .panel {
@@ -117,15 +144,17 @@ button {
     grid-column: 1;
     grid-row: 1;
     max-height: none;
-    border-radius: 0;
-    box-shadow: none;
-    border-right: 1px solid var(--line);
+    border-radius: var(--radius-panel);
+    box-shadow: var(--shadow);
   }
 
   .map-container {
     position: relative;
     grid-column: 2;
     grid-row: 1;
+    border-radius: var(--radius-panel);
+    overflow: hidden;
+    box-shadow: var(--shadow);
   }
 }
 
