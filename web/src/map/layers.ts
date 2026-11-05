@@ -20,6 +20,7 @@ interface State {
   pois: GeoJSON.FeatureCollection | null;
   visible: Record<PoiKind, boolean> | null;
   routes: { shortest: LngLat[] | null; accessible: LngLat[] | null; baseline: LngLat[] | null } | null;
+  done: LngLat[] | null;
   cityMarkers: maplibregl.Marker[];
   cityDeclutter: (() => void) | null;
   stopMarkers: maplibregl.Marker[];
@@ -43,6 +44,7 @@ function getState(m: AppMap): State {
       pois: null,
       visible: null,
       routes: null,
+      done: null,
       cityMarkers: [],
       cityDeclutter: null,
       stopMarkers: [],
@@ -85,6 +87,7 @@ const LAYER_ORDER = [
   "route-short",
   "route-base",
   "route-casing",
+  "route-done",
   "route-acc",
 ];
 
@@ -423,8 +426,9 @@ function applyRoutes(m: AppMap, s: State): void {
   setSource(map, "route-short", line(s.routes.shortest));
   setSource(map, "route-acc", line(s.routes.accessible));
   setSource(map, "route-base", line(s.routes.baseline));
+  setSource(map, "route-done", line(s.done));
   const round = { "line-cap": "round", "line-join": "round" } as const;
-  for (const id of ["route-short", "route-base", "route-casing", "route-acc"]) if (map.getLayer(id)) map.removeLayer(id);
+  for (const id of ["route-short", "route-base", "route-casing", "route-done", "route-acc"]) if (map.getLayer(id)) map.removeLayer(id);
   addOrdered(map, {
     id: "route-short",
     type: "line",
@@ -447,6 +451,13 @@ function applyRoutes(m: AppMap, s: State): void {
     paint: { "line-color": css("--surface"), "line-width": 7 },
   });
   addOrdered(map, {
+    id: "route-done",
+    type: "line",
+    source: "route-done",
+    layout: round,
+    paint: { "line-color": css("--route-short"), "line-width": 5, "line-opacity": 0.55 },
+  });
+  addOrdered(map, {
     id: "route-acc",
     type: "line",
     source: "route-acc",
@@ -464,6 +475,13 @@ export function showRoutes(
 ): void {
   const s = getState(m);
   s.routes = { shortest, accessible, baseline: opts.baseline ?? null };
+  applyRoutes(m, s);
+}
+
+/** 길안내에서 이미 지난 구간을 흐리게 그린다. null이면 지운다. */
+export function showRouteProgress(m: AppMap, done: LngLat[] | null): void {
+  const s = getState(m);
+  s.done = done;
   applyRoutes(m, s);
 }
 
@@ -545,6 +563,7 @@ export function clearCityLayers(m: AppMap): void {
   s.segments = null;
   s.pois = null;
   s.routes = null;
+  s.done = null;
   for (const mk of s.cityMarkers) mk.remove();
   for (const mk of s.stopMarkers) mk.remove();
   stopDeclutter(m, s);
@@ -559,8 +578,8 @@ export function clearCityLayers(m: AppMap): void {
   if (styleReady(m)) {
     removeLayers(
       m.map,
-      ["segments-scored", "segments-blocked", "pois-hit-minor", "pois-hit", "pois-minor", "pois", "route-acc", "route-casing", "route-base", "route-short"],
-      ["segments", "pois", "route-short", "route-acc", "route-base"],
+      ["segments-scored", "segments-blocked", "pois-hit-minor", "pois-hit", "pois-minor", "pois", "route-acc", "route-done", "route-casing", "route-base", "route-short"],
+      ["segments", "pois", "route-short", "route-acc", "route-base", "route-done"],
     );
   }
 }

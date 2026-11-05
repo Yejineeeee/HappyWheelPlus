@@ -211,3 +211,21 @@
 .about-table-wrap { overflow-x: auto; margin: 8px 0 12px; }
 .about-table th, .about-table td { text-align: left; vertical-align: top; font-size: 14px; }
 .about a { color: var(--accent); }
+
+/* 길안내 */
+.nav { display: flex; flex-direction: column; gap: 12px; }
+.nav-instruction { margin: 0; font-size: 1.5rem; font-weight: 700; line-height: 1.3; }
+.nav-meta { margin: 0; color: var(--muted); font-variant-numeric: tabular-nums; }
+.nav-warn { font-weight: 600; }
+.nav-warn[hidden] { display: none; }
+.nav-prompt .notice { color: var(--ink); border-color: var(--accent); }
+.nav-prompt .notice p { margin: 0 0 8px; }
+.nav-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.pill-group { display: inline-flex; gap: 4px; padding: 3px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); }
+.pill {
+  min-height: 44px; min-width: 44px; padding: 0 16px; border: 0; border-radius: 999px;
+  background: transparent; color: var(--ink); font: inherit; font-weight: 600; cursor: pointer;
+}
+.pill[aria-pressed="true"] { background: var(--accent); color: var(--surface); }
+.nav-controls > .pill { border: 1px solid var(--line); }
+.pill:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }

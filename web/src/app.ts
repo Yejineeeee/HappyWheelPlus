@@ -11,8 +11,8 @@ import { cityView } from "./views/city";
 import { compareView } from "./views/compare";
 import { courseView } from "./views/course";
 import { homeView } from "./views/home";
+import { navView } from "./views/nav";
 import { notFoundView } from "./views/notFound";
-import { placeholderView } from "./views/placeholder";
 import type { AppContext, View } from "./views/types";
 
 function makeView(route: Route): View {
@@ -24,7 +24,7 @@ function makeView(route: Route): View {
     case "course":
       return courseView(route.city, route.course);
     case "nav":
-      return placeholderView("길안내");
+      return navView(route.city, route.course);
     case "compare":
       return compareView();
     case "about":
