@@ -6,7 +6,10 @@ export interface AppMap {
   map: maplibregl.Map;
   ready: Promise<void>;
   setTheme(t: "light" | "dark"): void;
-  fitTo(bounds: [[number, number], [number, number]], opts?: { animate?: boolean }): void;
+  fitTo(
+    bounds: [[number, number], [number, number]],
+    opts?: { animate?: boolean; padding?: number | maplibregl.PaddingOptions },
+  ): void;
   /** 스타일이 (다시) 로드될 때마다 호출되는 콜백 등록. 앱 레이어 복원에 쓴다. */
   onStyleLoad(cb: () => void): void;
   /** 스타일이 로드되어 소스·레이어를 추가할 수 있는 상태인지. */
@@ -64,7 +67,7 @@ export function createMap(container: HTMLElement, theme: "light" | "dark"): AppM
     },
     fitTo(bounds, opts) {
       const animate = prefersReducedMotion() ? false : (opts?.animate ?? true);
-      map.fitBounds(bounds, { padding: 48, animate, maxZoom: 17 });
+      map.fitBounds(bounds, { padding: opts?.padding ?? 48, animate, maxZoom: 17 });
     },
     onStyleLoad(cb) {
       listeners.push(cb);

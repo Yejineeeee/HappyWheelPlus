@@ -1,0 +1,95 @@
+/* 지도 컨트롤: 터치 영역 44px */
+.maplibregl-ctrl-group button {
+  width: 44px;
+  height: 44px;
+}
+
+.map-overlay {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 1px 6px rgb(0 0 0 / 0.25);
+  font-size: 14px;
+}
+
+.btn-quiet { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+
+/* 홈 */
+.home .intro { margin: 0 0 16px; }
+.country-group h3 { margin: 16px 0 4px; font-size: 14px; color: var(--muted); }
+.city-list { list-style: none; margin: 0; padding: 0; }
+.city-row {
+  width: 100%;
+  min-height: 52px;
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 4px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+.city-row:hover { background: var(--bg); }
+.city-name { font-weight: 700; }
+.city-meta { color: var(--muted); font-size: 14px; }
+.city-score { font-weight: 600; min-width: 5.5em; text-align: right; }
+.home-links { display: flex; gap: 8px; margin-top: 20px; flex-wrap: wrap; }
+
+/* 도시 */
+.city h3 { margin: 20px 0 8px; font-size: 16px; }
+.city-metrics { margin: 0; }
+.city-metrics .metric { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.city-metrics dt { color: var(--muted); }
+.city-metrics dd { margin: 0; font-weight: 600; text-align: right; }
+
+.legend ul { list-style: none; display: flex; gap: 16px; margin: 8px 0 0; padding: 0; font-size: 14px; }
+.legend li { display: flex; align-items: center; gap: 6px; }
+.legend-caption { margin: 0 0 8px; color: var(--muted); font-size: 14px; }
+.legend-bar { height: 10px; border-radius: 5px; }
+.legend-ticks { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-top: 2px; }
+.legend-swatch { display: inline-block; width: 28px; height: 0; }
+.swatch-blocked { border-top: 3px dashed var(--blocked); }
+.swatch-unknown { border-top: 3px solid var(--muted); }
+
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 999px;
+  border: 1px solid var(--muted);
+  background: transparent;
+  cursor: pointer;
+}
+.chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--surface); font-weight: 600; }
+.poi-counts { list-style: none; display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 8px 0 0; padding: 0; color: var(--muted); font-size: 14px; }
+.poi-count { font-weight: 600; color: var(--ink); }
+
+.course-list { display: flex; flex-direction: column; gap: 8px; }
+.course-card {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  padding: 12px 14px;
+  text-align: left;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  cursor: pointer;
+}
+.course-card:hover { border-color: var(--accent); }
+.course-head { display: flex; justify-content: space-between; gap: 12px; font-weight: 700; }
+.course-score { white-space: nowrap; }
+.course-sub { margin-top: 2px; color: var(--muted); font-size: 14px; }
+.course-badges { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }

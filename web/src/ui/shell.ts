@@ -5,6 +5,8 @@ export interface Shell {
   panel: HTMLElement;
   mapContainer: HTMLElement;
   setTitle(t: string, back?: string): void;
+  /** 테마 토글 후 호출. data-theme은 콜백 호출 전에 이미 바뀌어 있다. */
+  onThemeChange(cb: (t: "light" | "dark") => void): void;
 }
 
 const THEME_KEY = "hw-theme";
@@ -49,6 +51,7 @@ export function mountShell(root: HTMLElement): Shell {
   const title = q("title");
   const themeBtn = q<HTMLButtonElement>("theme");
   let backHref: string | undefined;
+  const themeListeners: ((t: "light" | "dark") => void)[] = [];
 
   backBtn.append(icon("arrow-left"));
   const syncThemeIcon = () => {
@@ -70,12 +73,16 @@ export function mountShell(root: HTMLElement): Shell {
     } catch {
       /* 저장할 수 없는 환경은 무시 */
     }
+    for (const cb of themeListeners) cb(next);
   });
 
   return {
     header,
     panel: q("panel"),
     mapContainer: q("map"),
+    onThemeChange(cb) {
+      themeListeners.push(cb);
+    },
     setTitle(t, back) {
       title.textContent = t;
       document.title = t === "HappyWheel+" ? t : `${t} · HappyWheel+`;
