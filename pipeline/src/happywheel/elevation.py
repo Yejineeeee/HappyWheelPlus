@@ -15,6 +15,13 @@ from .geo import sample_along
 TILE_URL = "https://copernicus-dem-30m.s3.amazonaws.com/{name}/{name}.tif"
 
 
+DOWNLOAD_ATTEMPTS = 3
+
+
+class IncompleteDownload(OSError):
+    pass
+
+
 class ElevationSource(Protocol):
     def elevations(self, lonlats: list[tuple[float, float]]) -> list[float | None]: ...
 
@@ -37,37 +44,81 @@ class CopernicusDEM:
             for lon in range(math.floor(west), math.floor(east) + 1):
                 self._tile(lat, lon)
 
+    def _fetch(self, name: str, path: Path) -> Path | None:
+        """One download attempt; resumes from an existing .part when the server allows."""
+        part = path.with_suffix(".tif.part")
+        start = part.stat().st_size if part.exists() else 0
+        headers = {"Range": f"bytes={start}-"} if start else {}
+        req = urllib.request.Request(TILE_URL.format(name=name), headers=headers)
+        try:
+            resp_cm = urllib.request.urlopen(req, timeout=60)
+        except urllib.error.HTTPError as e:
+            if e.code == 404:
+                part.unlink(missing_ok=True)
+                return None
+            if e.code == 416:  # stale/oversized .part: start over
+                part.unlink(missing_ok=True)
+            raise
+        with resp_cm as r:
+            status = getattr(r, "status", 200)
+            if start and status == 206:
+                total = int(r.headers["Content-Range"].rsplit("/", 1)[1])
+                mode = "ab"
+            else:
+                start = 0
+                total = int(r.headers["Content-Length"])
+                mode = "wb"
+            with open(part, mode) as f:
+                while chunk := r.read(1 << 20):
+                    f.write(chunk)
+        size = part.stat().st_size
+        if size != total:
+            raise IncompleteDownload(f"{name}: got {size} of {total} bytes")
+        import rasterio
+        try:
+            with rasterio.open(part):
+                pass
+        except rasterio.errors.RasterioIOError:
+            part.unlink(missing_ok=True)
+            raise
+        os.replace(part, path)
+        return path
+
     def _download(self, name: str) -> Path | None:
         path = self.dem_dir / f"{name}.tif"
         if path.exists():
             return path
-        tmp = path.with_suffix(".tif.part")
+        last: Exception | None = None
+        for _ in range(DOWNLOAD_ATTEMPTS):
+            try:
+                return self._fetch(name, path)
+            except OSError as e:  # incl. URLError, HTTPError, IncompleteDownload
+                last = e
+            except Exception as e:  # unreadable raster
+                last = e
+        assert last is not None
+        raise last
+
+    def _open(self, name: str):
+        import rasterio
+        path = self._download(name)
+        if path is None:
+            return None
         try:
-            with urllib.request.urlopen(TILE_URL.format(name=name), timeout=60) as r, \
-                    open(tmp, "wb") as f:
-                while chunk := r.read(1 << 20):
-                    f.write(chunk)
-        except urllib.error.HTTPError as e:
-            tmp.unlink(missing_ok=True)
-            if e.code == 404:
+            ds = rasterio.open(path)
+        except rasterio.errors.RasterioIOError:
+            path.unlink(missing_ok=True)  # corrupt cache: evict, re-download once
+            path = self._download(name)
+            if path is None:
                 return None
-            raise
-        except BaseException:
-            tmp.unlink(missing_ok=True)
-            raise
-        os.replace(tmp, path)
-        return path
+            ds = rasterio.open(path)
+        with ds:
+            return (ds.read(1), ds.transform, ds.nodata)
 
     def _tile(self, lat_floor: int, lon_floor: int):
         name = tile_name(lat_floor, lon_floor)
         if name not in self._tiles:
-            path = self._download(name)
-            if path is None:
-                self._tiles[name] = None
-            else:
-                import rasterio
-                with rasterio.open(path) as ds:
-                    self._tiles[name] = (ds.read(1), ds.transform, ds.nodata)
+            self._tiles[name] = self._open(name)
         return self._tiles[name]
 
     @staticmethod
