@@ -19,10 +19,12 @@ python -m venv .venv
 ```
 python -m happywheel run [--city ID ...] [--out PATH] [--cache PATH]
 python -m happywheel check-size [--out PATH] [--limit-mb 2.0]
+python -m happywheel thumbs [--city ID ...] [--out PATH]
 ```
 
 - `run`: 도시를 하나씩 처리한다(네트워크 수집, 고도 보정, 편의시설 수집, 결과 파일 쓰기). `--city`를 생략하면 `config/cities.yaml`의 전체 도시를 돈다. 처리한 도시만 `cities.json` 항목을 갱신하고, 실행하지 않은 도시의 기존 항목은 그대로 둔다. 알 수 없는 도시 ID는 오류 메시지와 함께 종료 코드 2. 도시 하나가 실패하면 나머지를 계속 돌리고 종료 코드 1로 끝난다.
 - `check-size`: 도시 폴더마다 파일을 gzip(레벨 9)으로 압축한 크기의 합을 출력한다. 하나라도 한도(기본 2.0 MB)를 넘으면 종료 코드 1.
+- `thumbs`: 도시 폴더의 `segments.geojson`을 읽어 구간 점수 색(점수 색 5단, 통과 불가는 회색)으로 그린 480×320 WebP 미니 히트맵 `thumb.webp`를 쓴다(홈 화면 도시 카드용). 크기·dpi를 고정하고 메타데이터를 넣지 않아 같은 입력이면 같은 파일이 나온다. 도시당 60 KB 이하가 되도록 품질을 낮춰 가며 저장한다. `run` 다음에 따로 실행한다. `thumb.webp`는 `data_version` 계산 대상이 아니다. 필요한 패키지: matplotlib, Pillow(`.[dev]` 또는 `.[thumbs]`).
 - 기본 출력은 `../web/public/data`, 기본 캐시는 `pipeline/.cache`(git에 넣지 않음).
 - 테스트: `python -m pytest`.
 
@@ -55,6 +57,7 @@ Copernicus GLO-30은 표면 모델(DSM)이라 건물과 수목 높이가 섞여 
   - 웹에서 경로를 다시 계산해 고도 프로파일을 그릴 때, 다리·터널 간선은 DEM을 읽지 않고 두 끝 노드 `elev` 사이를 선형 보간한다(단순화 후 다리 끝 노드는 땅 위에 있다).
 - `pois.geojson`: 편의시설 점(`kind`: toilet, elevator, bench, fountain).
 - `courses.json`: 코스 배열. 경로(`routes.shortest`, `routes.accessible`)는 `coords`, `seg_ids`, `metrics`, `profile`을 가진다. **`profile` 행은 `[거리 m, 고도 m|null, 경사 %|null]`**이며 25 m 간격이다. 고도는 DEM 값이되 다리·터널 간선 위에서는 그 간선 두 끝 노드 고도 사이를 선형 보간한 값이고, 경사는 표본이 놓인 구간의 `grade_max`(없으면 `null`)다. 접근성 경로가 없으면(`reachable=false`) `routes.accessible`과 `comparison`이 `null`, `blocked_at`에 끊긴 정류장 좌표가 들어가며 `approximate`, `snap_max_m`은 그대로 있다. 이 모양은 `tests/data/courses_unreachable.json`에 고정해 두었다.
+- `thumb.webp`(선택): `thumbs` 명령이 만드는 480×320 미니 히트맵. `data_version` 계산에는 넣지 않는다.
 - `cities.json`: 도시 항목마다 `id`, `name_ko`, `country_ko`, `center`, `radius_m`, `data_version`, `metrics`, `course_count`. **`data_version`은 그 도시 네 파일(파일 이름순: courses.json, graph.json, pois.geojson, segments.geojson)의 바이트를 이어 붙인 sha256의 앞 12자리**라서 웹이 캐시 키로 쓸 수 있다.
 - 분석 영역과 면적: `graph_from_point`와 `features_from_point`는 중심에서 `dist` 안의 정사각형(bbox)을 가져오므로 영역은 한 변 2r인 정사각형이다. `area_km2 = (2r)² / 1e6`이고 편의시설 밀도(`poi_per_km2`)도 이 면적으로 나눈다.
 

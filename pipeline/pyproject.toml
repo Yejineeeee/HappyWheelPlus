@@ -20,7 +20,8 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8", "jupyter", "matplotlib"]
+dev = ["pytest>=8", "jupyter", "matplotlib", "pillow"]
+thumbs = ["matplotlib", "pillow"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

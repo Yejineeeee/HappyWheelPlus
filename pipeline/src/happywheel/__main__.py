@@ -1,4 +1,4 @@
-"""Command line: `python -m happywheel run|check-size`."""
+"""Command line: `python -m happywheel run|check-size|thumbs`."""
 from __future__ import annotations
 
 import argparse
@@ -98,6 +98,31 @@ def _cmd_check_size(args) -> int:
     return 1 if over else 0
 
 
+def _cmd_thumbs(args) -> int:
+    from .thumbs import write_thumb
+
+    out = Path(args.out)
+    folders = sorted(p for p in out.iterdir() if p.is_dir()) if out.is_dir() else []
+    if args.city:
+        have = {d.name for d in folders}
+        unknown = [i for i in args.city if i not in have]
+        if unknown:
+            print(f"error: no data folder for: {', '.join(unknown)}", file=sys.stderr)
+            return 2
+        folders = [d for d in folders if d.name in args.city]
+    failed = False
+    for d in folders:
+        if not (d / "segments.geojson").exists():
+            continue
+        try:
+            size = write_thumb(d)
+            print(f"{d.name}: thumb.webp {size / 1024:.1f} KB")
+        except Exception as e:
+            failed = True
+            print(f"{d.name}: FAILED: {type(e).__name__}: {e}", file=sys.stderr)
+    return 1 if failed else 0
+
+
 def main(argv: list[str]) -> int:
     ap = argparse.ArgumentParser(prog="happywheel")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -109,8 +134,15 @@ def main(argv: list[str]) -> int:
     c = sub.add_parser("check-size", help="gzip size per city folder")
     c.add_argument("--out", default=str(DEFAULT_OUT))
     c.add_argument("--limit-mb", type=float, default=2.0)
+    t = sub.add_parser("thumbs", help="render city heatmap thumbnails (thumb.webp)")
+    t.add_argument("--city", action="append", help="city id (repeatable); default all")
+    t.add_argument("--out", default=str(DEFAULT_OUT))
     args = ap.parse_args(argv)
-    return _cmd_run(args) if args.cmd == "run" else _cmd_check_size(args)
+    if args.cmd == "run":
+        return _cmd_run(args)
+    if args.cmd == "thumbs":
+        return _cmd_thumbs(args)
+    return _cmd_check_size(args)
 
 
 if __name__ == "__main__":
