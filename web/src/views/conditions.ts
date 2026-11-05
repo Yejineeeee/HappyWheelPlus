@@ -129,20 +129,24 @@ export interface ConditionsPanel {
   destroy(): void;
 }
 
+/** 내 조건으로 다시 찾은 경로. 기본 조건이거나 길을 찾지 못하면 null. */
+export interface CustomRoute {
+  metrics: RouteMetrics;
+  coords: [number, number][];
+}
+
 export interface PanelOpts {
   ctx: AppContext;
   city: CityEntry;
   course: Course;
-  /** 패널을 여닫는 버튼. aria-expanded를 이 모듈이 관리한다. */
-  button: HTMLButtonElement;
   /** 표시 중인 경로의 경사 단면이 바뀌면 불린다. */
   onProfile(rows: ProfileRow[]): void;
-  /** 버튼으로 패널을 여닫으면 불린다. */
-  onOpenChange?(open: boolean): void;
+  /** 지도에 보이는 내 조건 경로가 바뀌면 불린다(기본 경로로 돌아가면 null). */
+  onResult?(r: CustomRoute | null): void;
 }
 
 export function conditionsPanel(opts: PanelOpts): ConditionsPanel {
-  const { ctx, city, course, button } = opts;
+  const { ctx, city, course } = opts;
   const defaults = ctx.index.weights_default;
   const baseAcc = course.routes.accessible;
   const defaultRoute = (): { coords: [number, number][]; segIds: number[] } => ({
@@ -159,8 +163,6 @@ export function conditionsPanel(opts: PanelOpts): ConditionsPanel {
   let dead = false;
 
   const root = el("section", { class: "conditions", id: `cond-${city.id}-${course.index}`, "aria-label": "내 조건", hidden: "" });
-  button.setAttribute("aria-expanded", "false");
-  button.setAttribute("aria-controls", root.id);
 
   const status = el("div", { class: "cond-status", role: "status", "aria-live": "polite" });
   const result = el("div", { class: "cond-result" });
@@ -302,6 +304,7 @@ export function conditionsPanel(opts: PanelOpts): ConditionsPanel {
     appliedCustom = false;
     setCurrentRoute(city.id, course.index, { ...r, source: "default" });
     opts.onProfile((baseAcc ?? course.routes.shortest).profile);
+    opts.onResult?.(null);
     result.replaceChildren();
     warnings.replaceChildren();
   }
@@ -320,6 +323,7 @@ export function conditionsPanel(opts: PanelOpts): ConditionsPanel {
     if (segFc) showSegments(ctx.map, segFc, res.segScores);
     setCurrentRoute(city.id, course.index, { coords: res.coords, segIds: res.path.edges, source: "custom" });
     opts.onProfile(res.profile);
+    opts.onResult?.({ metrics: res.metrics, coords: res.coords });
     result.replaceChildren();
     if (baseAcc) {
       result.append(
@@ -393,15 +397,7 @@ export function conditionsPanel(opts: PanelOpts): ConditionsPanel {
   function setOpen(open: boolean): void {
     if (open) root.removeAttribute("hidden");
     else root.setAttribute("hidden", "");
-    button.setAttribute("aria-expanded", String(open));
   }
-
-  button.addEventListener("click", () => {
-    const open = root.hasAttribute("hidden");
-    setOpen(open);
-    if (open) load();
-    opts.onOpenChange?.(open);
-  });
 
   return {
     el: root,

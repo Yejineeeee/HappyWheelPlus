@@ -270,16 +270,18 @@
 }
 
 .metric-table td.better { font-weight: 700; }
-.metric-table td.better::before {
-  content: "▲";
+/* 더 나은 값: 라임 배경 칩(글자는 검정). 화면 읽기 프로그램은 뒤의 숨은 " 더 나음"을 읽는다. */
+.better-chip {
   display: inline-block;
   margin-right: 6px;
-  padding: 0 5px;
+  padding: 0 7px;
   border-radius: var(--radius-pill);
   background: var(--lime);
   color: var(--on-lime);
-  font-size: 10px;
-  line-height: 16px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 18px;
+  white-space: nowrap;
   vertical-align: 1px;
 }
 .profile-plot { width: 100%; min-height: 180px; }
@@ -299,9 +301,19 @@
 .field-feel { font-weight: 600; }
 .field-scale { color: var(--muted); font-size: 13px; }
 .field-note { margin-top: var(--space-2) !important; }
-.course-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
-.course-actions .btn { flex: 1; }
-.course-actions .btn[aria-disabled="true"], .course-actions .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.route-hint { margin: 0 0 var(--space-1); color: var(--muted); font-size: 14px; }
+.route-hint[hidden] { display: none; }
+.metric-table[hidden] { display: none; }
+/* 내 조건 탭: 결과 한 줄이 슬라이더 위에 붙어 있도록 스크롤해도 고정 */
+.course[data-view="custom"] .course-summary {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  margin: 0;
+  padding: var(--space-2) 0;
+  background: var(--surface);
+  box-shadow: 0 1px 0 var(--line);
+}
 
 /* 내 조건 패널 */
 .conditions { padding: var(--space-4); border: 1px solid var(--line); border-radius: var(--radius-card); background: var(--surface); }
@@ -405,5 +417,14 @@
 .pill:hover { color: var(--ink); }
 .pill[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
 .nav-controls > .pill { flex: none; background: var(--surface-2); color: var(--ink); }
+/* 넓은 패널은 본문 위 여백(16px)이 있으므로 그 여백까지 덮어 뒤 내용이 비치지 않게 한다 */
+@media (min-width: 1024px) {
+  .course[data-view="custom"] .course-summary {
+    top: calc(-1 * var(--space-4));
+    padding-top: calc(var(--space-2) + var(--space-4));
+    /* 탭과의 간격(12px)만큼만 당겨 탭을 덮지 않는다(글자는 4px 내려간다) */
+    margin-top: calc(-1 * var(--space-3));
+  }
+}
 /* 홈 첫 높이(220px)에서 소개 문장 아래 카드 한 장이 다 보이도록 첫 나라 제목 위 여백을 줄인다 */
 .home .country-group:first-of-type .section-title { margin-top: var(--space-3); }

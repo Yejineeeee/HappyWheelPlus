@@ -14,6 +14,8 @@ vi.mock("../src/map/layers", () => ({
   showStops: vi.fn(),
   showBlockedAt: vi.fn(),
   setRouteFocus: vi.fn(),
+  setSegmentsOpacity: vi.fn(),
+  showPois: vi.fn(),
   showSegments: vi.fn(),
   hasSegments: vi.fn(() => true),
 }));
@@ -68,7 +70,8 @@ async function openPanel(ctx: AppContext, view = courseView("lucerne", reachable
   await view.mount(ctx);
   await flush();
   const root = ctx.sheet.el;
-  root.querySelector<HTMLButtonElement>(".course-actions button")!.click();
+  // "내 조건" 탭이 패널을 연다
+  root.querySelector<HTMLButtonElement>('[role="radio"][data-value="custom"]')!.click();
   await flush();
   return { view, root };
 }
@@ -216,6 +219,47 @@ describe("conditions panel behaviour", () => {
     vi.advanceTimersByTime(300);
     expect(inputs[1].getAttribute("aria-valuetext")).toBe("많이");
     expect(currentRoute("lucerne", reachableIdx)?.source).toBe("custom");
+  });
+
+  it("custom result drives the summary; leaving the tab closes the panel and restores the default", async () => {
+    const ctx = makeCtx();
+    const { root } = await openPanel(ctx);
+    const sentence = () => root.querySelector(".course-summary")!.textContent!;
+    const hint = root.querySelector<HTMLElement>(".route-hint")!;
+    const bar = ctx.shell.mapContainer.querySelector(".route-bar")!;
+    const base = courses.find((c) => c.index === reachableIdx)!.routes.accessible!;
+    // 아직 바꾸지 않음: 기본 휠체어 경로 문장과 안내
+    expect(hint.hidden).toBe(false);
+    expect(sentence()).not.toMatch(/^기본 휠체어 경로보다/);
+
+    setSlider(root, 0, "2");
+    setSlider(root, 1, "2");
+    vi.advanceTimersByTime(300);
+    expect(currentRoute("lucerne", reachableIdx)?.source).toBe("custom");
+    expect(sentence()).toMatch(/^기본 휠체어 경로보다 [+−]?\d+m · 돌길 [+−]?\d+m · 계단 \d+개$/);
+    expect(hint.hidden).toBe(true);
+    const labels = [...root.querySelectorAll(".route-summary dt")].map((d) => d.textContent);
+    expect(labels).toContain("기본 경로와 차이");
+    const customCoords = customCalls().at(-1)![2] as [number, number][];
+    expect(customCoords.length).toBeGreaterThan(1);
+    expect(bar.querySelector("dd")!.textContent).not.toBe("");
+    // 내 조건에서는 기본 대비 차이 표만 보인다
+    expect(root.querySelector<HTMLElement>(".metric-table:not(.diff-table)")!.hidden).toBe(true);
+    expect(root.querySelector(".diff-table")).not.toBeNull();
+
+    vi.mocked(showSegments).mockClear();
+    vi.mocked(showRoutes).mockClear();
+    root.querySelector<HTMLButtonElement>('[role="radio"][data-value="accessible"]')!.click();
+    expect(root.querySelector<HTMLElement>(".conditions")!.hidden).toBe(true);
+    expect(showSegments).toHaveBeenCalledWith(ctx.map, expect.anything(), null);
+    expect(showRoutes).toHaveBeenLastCalledWith(ctx.map, expect.anything(), base.coords);
+    expect(currentRoute("lucerne", reachableIdx)?.source).toBe("default");
+    expect(sentence()).not.toMatch(/^기본 휠체어 경로보다/);
+
+    // 다시 내 조건으로 오면 남겨 둔 슬라이더 값으로 바로 다시 계산한다.
+    root.querySelector<HTMLButtonElement>('[role="radio"][data-value="custom"]')!.click();
+    expect(currentRoute("lucerne", reachableIdx)?.source).toBe("custom");
+    expect(sentence()).toMatch(/^기본 휠체어 경로보다/);
   });
 
   it("keeps the status text after the data finishes loading", async () => {

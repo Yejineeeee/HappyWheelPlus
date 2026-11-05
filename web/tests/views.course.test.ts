@@ -13,15 +13,17 @@ vi.mock("../src/map/layers", () => ({
   showStops: vi.fn(),
   showBlockedAt: vi.fn(),
   setRouteFocus: vi.fn(),
+  setSegmentsOpacity: vi.fn(),
+  showPois: vi.fn(),
   showSegments: vi.fn(),
   hasSegments: vi.fn(),
 }));
 
 import { loadCourses, loadGraph, loadPois, loadSegments } from "../src/data/load";
-import { hasSegments, setRouteFocus, showBlockedAt, showRoutes, showSegments, showStops } from "../src/map/layers";
+import { hasSegments, setRouteFocus, setSegmentsOpacity, showBlockedAt, showPois, showRoutes, showSegments, showStops } from "../src/map/layers";
 import { profileChart } from "../src/ui/profileChart";
 import { mountSheet } from "../src/ui/sheet";
-import { courseView } from "../src/views/course";
+import { courseView, customSentence, isBetter, shortestSentence } from "../src/views/course";
 import type { AppContext } from "../src/views/types";
 
 const CITY: CityEntry = {
@@ -237,25 +239,25 @@ describe("course view", () => {
 });
 
 describe("course view conditions panel", () => {
-  it("button is enabled and toggles the panel with aria-expanded", async () => {
+  it("the 내 조건 tab opens the panel inline; there is no separate button", async () => {
     vi.mocked(loadCourses).mockResolvedValue([course()]);
     vi.mocked(loadGraph).mockReturnValue(new Promise(() => {}));
     const ctx = makeCtx();
     await courseView("paris", 0).mount(ctx);
     await tick();
-    const btn = ctx.sheet.el.querySelector<HTMLButtonElement>(".course-actions button")!;
-    expect(btn.disabled).toBe(false);
-    expect(btn.getAttribute("aria-expanded")).toBe("false");
+    expect(ctx.sheet.el.textContent).not.toContain("내 조건으로 경로 바꾸기");
+    expect(ctx.sheet.el.querySelector(".course-actions")).toBeNull();
     const panel = ctx.sheet.el.querySelector<HTMLElement>(".conditions")!;
+    const tab = ctx.sheet.el.querySelector<HTMLButtonElement>('[role="radio"][data-value="custom"]')!;
+    expect(tab.getAttribute("aria-controls")).toBe(panel.id);
     expect(panel.hidden).toBe(true);
-    btn.click();
-    expect(btn.getAttribute("aria-expanded")).toBe("true");
+    tab.click();
     expect(panel.hidden).toBe(false);
     expect(panel.querySelectorAll('input[type="range"]').length).toBe(4);
     expect(panel.querySelectorAll('input[type="checkbox"]').length).toBe(4);
     const slope = panel.querySelector<HTMLInputElement>('input[type="range"]')!;
     expect(slope.getAttribute("aria-valuetext")).toBe("보통");
-    btn.click();
+    ctx.sheet.el.querySelector<HTMLButtonElement>('[role="radio"][data-value="accessible"]')!.click();
     expect(panel.hidden).toBe(true);
   });
 
@@ -273,6 +275,26 @@ describe("course view conditions panel", () => {
     await courseView("paris", 0).mount(makeCtx());
     await tick();
     expect(loadSegments).not.toHaveBeenCalled();
+  });
+
+  it("deep link shows the map loading overlay, with retry on failure", async () => {
+    vi.mocked(loadCourses).mockResolvedValue([course()]);
+    vi.mocked(hasSegments).mockReturnValue(false);
+    vi.mocked(loadSegments)
+      .mockRejectedValueOnce(new Error("x"))
+      .mockResolvedValueOnce({ type: "FeatureCollection", features: [] });
+    const ctx = makeCtx();
+    const view = courseView("paris", 0);
+    await view.mount(ctx);
+    await tick();
+    const box = ctx.shell.mapContainer.querySelector<HTMLElement>(".map-overlay")!;
+    expect(box.textContent).toContain("길 데이터를 불러오지 못했어요.");
+    box.querySelector<HTMLButtonElement>("button")!.click();
+    expect(box.textContent).not.toContain("못했어요");
+    await tick();
+    expect(showSegments).toHaveBeenCalledTimes(1);
+    expect(ctx.shell.mapContainer.querySelector(".map-overlay")).toBeNull();
+    view.unmount();
   });
 
   it("publishes the default route as current route on mount", async () => {
@@ -351,7 +373,6 @@ describe("course view route tabs and summary", () => {
     expect(radios.map((r) => r.textContent)).toEqual(["최단", "휠체어", "내 조건"]);
     expect(radios[1].getAttribute("aria-checked")).toBe("true");
     const panel = ctx.sheet.el.querySelector<HTMLElement>(".conditions")!;
-    const btn = ctx.sheet.el.querySelector<HTMLButtonElement>(".course-actions button")!;
 
     radios[0].click();
     expect(setRouteFocus).toHaveBeenLastCalledWith(ctx.map, "shortest");
@@ -360,15 +381,139 @@ describe("course view route tabs and summary", () => {
     radios[2].click();
     expect(setRouteFocus).toHaveBeenLastCalledWith(ctx.map, "accessible");
     expect(panel.hidden).toBe(false);
-    expect(btn.getAttribute("aria-expanded")).toBe("true");
     expect(loadGraph).toHaveBeenCalledTimes(1);
 
     radios[1].click();
     expect(panel.hidden).toBe(true);
-    expect(btn.getAttribute("aria-expanded")).toBe("false");
+  });
 
-    btn.click();
-    expect(radios[2].getAttribute("aria-checked")).toBe("true");
+  it("summary sentence, key-value list and map bar follow the selected tab", async () => {
+    vi.mocked(loadCourses).mockResolvedValue([course()]);
+    vi.mocked(loadGraph).mockReturnValue(new Promise(() => {}));
+    const ctx = makeCtx();
+    await courseView("paris", 0).mount(ctx);
+    await tick();
+    const root = ctx.sheet.el;
+    const bar = ctx.shell.mapContainer.querySelector(".route-bar")!;
+    const pairs = (scope: Element) =>
+      [...scope.querySelectorAll(".kv-row")].map((r) => [r.querySelector("dt")!.textContent, r.querySelector("dd")!.textContent]);
+    const sentence = () => root.querySelector(".course-summary")!.textContent;
+    const sheetKv = () => pairs(root.querySelector(".route-summary")!);
+    const barKv = () => pairs(bar);
+    const tab = (v: string) => root.querySelector<HTMLButtonElement>('[role="radio"][data-value="' + v + '"]')!.click();
+    const table = root.querySelector<HTMLElement>(".metric-table:not(.diff-table)")!;
+    const hint = root.querySelector<HTMLElement>(".route-hint")!;
+
+    // 휠체어(기본)
+    expect(sentence()).toBe("계단 10개를 피하는 대신 243m 더 가요");
+    expect(barKv()[0]).toEqual(["거리", "1.2km"]);
+    expect(hint.hidden).toBe(true);
+
+    tab("shortest");
+    expect(sentence()).toBe("가장 짧지만 지나갈 수 없는 계단 10개를 지나요");
+    expect(sheetKv().map((r) => r[0])).toEqual(["거리", "지나갈 수 없는 계단", "최대 경사", "평균 점수"]);
+    expect(sheetKv()[0][1]).toBe("1.0km");
+    expect(sheetKv()[1][1]).toBe("10개");
+    expect(barKv()).toEqual([["거리", "1.0km"], ["지나갈 수 없는 계단", "10개"], ["최대 경사", "9.0%"], ["평균 점수", "60"]]);
+    expect(root.querySelectorAll(".route-summary .kv-row.is-strong").length).toBe(1);
+    expect(table.hidden).toBe(false);
+
+    // 내 조건, 아직 아무것도 바꾸지 않음: 기본 휠체어 경로 수치 + 안내
+    tab("custom");
+    expect(sentence()).toBe("계단 10개를 피하는 대신 243m 더 가요");
+    expect(hint.hidden).toBe(false);
+    expect(hint.textContent).toBe("아래에서 조건을 바꿔 보세요");
+    expect(barKv()[0]).toEqual(["거리", "1.2km"]);
+    // 최단 대비 표는 숨기고 기본 대비 차이 표만
+    expect(table.hidden).toBe(true);
+
+    tab("accessible");
+    expect(sheetKv().map((r) => r[0])).toEqual(["거리", "추가 거리", "피한 계단", "최대 경사", "평균 점수"]);
+    expect(table.hidden).toBe(false);
+  });
+
+  it("shortest tab says it is the shortest when there are no stairs", () => {
+    const c = course({ routes: { shortest: route(1000, 0, 4, 70), accessible: route(1100, 0, 3, 80) } });
+    expect(shortestSentence(c)).toBe("가장 짧은 길이에요");
+    expect(shortestSentence(course())).toBe("가장 짧지만 지나갈 수 없는 계단 10개를 지나요");
+  });
+
+  it("custom sentence describes the difference from the default wheelchair route", () => {
+    const base = { length_m: 1200, steps_count: 0, max_grade_pct: 5, steep_m: 0, cobble_m: 300, mean_score: 80, toilets_300m: 1 };
+    expect(customSentence(base, { ...base, length_m: 1320, cobble_m: 260 })).toBe("기본 휠체어 경로보다 +120m · 돌길 −40m · 계단 0개");
+    expect(customSentence(base, { ...base, length_m: 1150, steps_count: 1 })).toBe("기본 휠체어 경로보다 −50m · 돌길 0m · 계단 1개");
+  });
+
+  it("better mark compares displayed values: a tie after rounding gets no mark", async () => {
+    const short = route(1000, 0, 5.04, 80.4);
+    const acc = route(1000.3, 0, 5.01, 80.2);
+    vi.mocked(loadCourses).mockResolvedValue([
+      course({ routes: { shortest: short, accessible: acc }, comparison: { extra_m: 0, steps_avoided: 0 } }),
+    ]);
+    const ctx = makeCtx();
+    await courseView("paris", 0).mount(ctx);
+    await tick();
+    // 1000m 대 1000m, 5.0% 대 5.0%, 80점 대 80점: 같아 보이므로 표시 없음
+    expect(ctx.sheet.el.querySelectorAll(".metric-table td.better").length).toBe(0);
+    expect(ctx.sheet.el.querySelector(".better-chip")).toBeNull();
+    const m = (v: number | null) => `${Math.round(v!)}m`;
+    expect(isBetter({ fmt: m, better: "low" }, 999.6, 1000.4)).toBe(false);
+    expect(isBetter({ fmt: m, better: "low" }, 990, 1000)).toBe(true);
+    expect(isBetter({ fmt: m, better: "high" }, 990, 1000)).toBe(false);
+  });
+
+  it("better cells carry a visible lime chip and keep the hidden text", async () => {
+    vi.mocked(loadCourses).mockResolvedValue([course()]);
+    const ctx = makeCtx();
+    await courseView("paris", 0).mount(ctx);
+    await tick();
+    const td = ctx.sheet.el.querySelector(".metric-table td.better")!;
+    const chip = td.querySelector(".better-chip")!;
+    expect(chip.textContent).toBe("✓ 더 나음");
+    expect(chip.getAttribute("aria-hidden")).toBe("true");
+    expect(td.querySelector(".visually-hidden")!.textContent).toBe(" 더 나음");
+  });
+
+  it("heatmap is dimmed on the course page and restored on leave", async () => {
+    vi.mocked(loadCourses).mockResolvedValue([course()]);
+    const ctx = makeCtx();
+    const view = courseView("paris", 0);
+    await view.mount(ctx);
+    await tick();
+    expect(setSegmentsOpacity).toHaveBeenLastCalledWith(ctx.map, 0.35);
+    view.unmount();
+    expect(setSegmentsOpacity).toHaveBeenLastCalledWith(ctx.map, 1);
+  });
+
+  it("shows only facilities within 300 m of the selected route, recomputed on tab change", async () => {
+    const shortest = { ...route(1000, 10, 9, 60), coords: [[2, 48], [2.01, 48]] as [number, number][] };
+    const accessible = { ...route(1300, 0, 5, 85), coords: [[2, 48], [2, 48.01], [2.01, 48.01]] as [number, number][] };
+    vi.mocked(loadCourses).mockResolvedValue([course({ routes: { shortest, accessible } })]);
+    const poi = (id: string, kind: string, lon: number, lat: number) => ({
+      type: "Feature" as const,
+      geometry: { type: "Point" as const, coordinates: [lon, lat] },
+      properties: { kind, name: null, wheelchair: null, osm_id: id },
+    });
+    vi.mocked(loadPois).mockResolvedValue({
+      type: "FeatureCollection",
+      features: [
+        poi("a", "toilet", 2.005, 48.0005), // 최단 경로 옆(약 55m)
+        poi("b", "bench", 2.0002, 48.005), // 휠체어 경로 옆(약 15m)
+        poi("c", "fountain", 2.5, 48.5), // 멀리
+      ],
+    } as never);
+    const ctx = makeCtx();
+    await courseView("paris", 0).mount(ctx);
+    await tick();
+    const shown = () =>
+      (vi.mocked(showPois).mock.lastCall![1] as unknown as { features: { properties: { osm_id: string } }[] }).features.map(
+        (f) => f.properties.osm_id,
+      );
+    expect(shown()).toEqual(["b"]);
+    expect(ctx.sheet.el.querySelector(".poi-near")!.textContent).toBe("벤치 1곳");
+    ctx.sheet.el.querySelector<HTMLButtonElement>('[role="radio"][data-value="shortest"]')!.click();
+    expect(shown()).toEqual(["a"]);
+    expect(ctx.sheet.el.querySelector(".poi-near")!.textContent).toBe("화장실 1곳");
   });
 
   it("unreachable course has no route tabs", async () => {
