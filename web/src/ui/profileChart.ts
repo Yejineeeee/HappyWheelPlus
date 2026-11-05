@@ -134,6 +134,17 @@ export function profileChart(rows: ProfileRow[], opts: { compare?: ProfileRow[] 
   );
 
   draw();
+  if (typeof MutationObserver !== "undefined") {
+    // 테마가 바뀌면 SVG에 박힌 색을 다시 읽는다. 화면에서 떨어지면 스스로 해제한다.
+    const themeObs = new MutationObserver(() => {
+      if (!root.isConnected) {
+        themeObs.disconnect();
+        return;
+      }
+      draw();
+    });
+    themeObs.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+  }
   if (typeof ResizeObserver !== "undefined") {
     let lastW = holder.clientWidth;
     new ResizeObserver(() => {

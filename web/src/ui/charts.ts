@@ -61,6 +61,24 @@ function extremes<T>(items: T[], value: (t: T) => number): { max: T; min: T } {
   return { max, min };
 }
 
+const DIGIT_BATCHIM = [true, true, false, true, false, false, true, true, true, false];
+
+/** 마지막 읽는 글자에 받침이 있는지. 닫는 괄호는 건너뛰고 %는 "퍼센트"(받침 없음), 숫자는 한글 읽기 기준. */
+function hasBatchim(word: string): boolean {
+  const s = word.replace(/[)\]}>"'.\s]+$/, "");
+  const ch = s.slice(-1);
+  if (ch === "%") return false;
+  if (/[0-9]/.test(ch)) return DIGIT_BATCHIM[Number(ch)];
+  const code = ch.charCodeAt(0);
+  if (code >= 0xac00 && code <= 0xd7a3) return (code - 0xac00) % 28 !== 0;
+  return false;
+}
+
+/** 받침이 있으면 withBatchim, 없으면 without을 붙인다. 예: josa("화장실", "이", "가") → "화장실이". */
+export function josa(word: string, withBatchim: string, without: string): string {
+  return word + (hasBatchim(word) ? withBatchim : without);
+}
+
 const pct = (v: number) => `${Math.round(v * 100)}%`;
 
 export function scoreSentence(index: CityIndex): string {
@@ -68,7 +86,7 @@ export function scoreSentence(index: CityIndex): string {
   const { max, min } = extremes(index.cities, (c) => c.metrics.mean_score);
   const a = `${max.name_ko}(${Math.round(max.metrics.mean_score)}점)`;
   const b = `${min.name_ko}(${Math.round(min.metrics.mean_score)}점)`;
-  return `평균 점수가 가장 높은 도시는 ${a}, 가장 낮은 도시는 ${b}이에요`;
+  return `평균 점수가 가장 높은 도시는 ${a}, 가장 낮은 도시는 ${josa(b, "이에요", "예요")}`;
 }
 
 export function surfaceSentence(index: CityIndex): string {
@@ -76,14 +94,14 @@ export function surfaceSentence(index: CityIndex): string {
   const { max, min } = extremes(index.cities, (c) => c.metrics.surface_mix.unknown);
   const a = `${max.name_ko}(${pct(max.metrics.surface_mix.unknown)})`;
   const b = `${min.name_ko}(${pct(min.metrics.surface_mix.unknown)})`;
-  return `노면 정보가 없는 길 비율이 가장 큰 도시는 ${a}, 가장 작은 도시는 ${b}예요`;
+  return `노면 정보가 없는 길 비율이 가장 큰 도시는 ${a}, 가장 작은 도시는 ${josa(b, "이에요", "예요")}`;
 }
 
 export function poiSentence(index: CityIndex): string {
   if (index.cities.length === 0) return "";
   const { max, min } = extremes(index.cities, (c) => c.metrics.poi_per_km2.toilet);
   const f = (c: typeof max) => `${c.name_ko}(${c.metrics.poi_per_km2.toilet.toFixed(1)}개)`;
-  return `㎢당 화장실은 ${f(max)}가 가장 많고 ${f(min)}이 가장 적어요`;
+  return `㎢당 화장실은 ${josa(f(max), "이", "가")} 가장 많고 ${josa(f(min), "이", "가")} 가장 적어요`;
 }
 
 export function coverageSentence(index: CityIndex): string {

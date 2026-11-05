@@ -5,6 +5,7 @@ vi.mock("../src/map/layers", () => ({ showCityMarkers: vi.fn() }));
 
 import { showCityMarkers } from "../src/map/layers";
 import { mountSheet } from "../src/ui/sheet";
+import { profileChart } from "../src/ui/profileChart";
 import { aboutView } from "../src/views/about";
 import { compareView } from "../src/views/compare";
 import type { AppContext } from "../src/views/types";
@@ -73,6 +74,31 @@ describe("compare and about views", () => {
     expect(table.hidden).toBe(false);
     expect(table.querySelectorAll("tbody tr").length).toBe(2);
     v.unmount();
+  });
+
+  it("compare redraws when data-theme changes and stops after unmount", async () => {
+    const c = ctx();
+    const v = compareView();
+    v.mount(c);
+    const before = c.sheet.el.querySelector(".chart-plot svg");
+    document.documentElement.setAttribute("data-theme", "dark");
+    await new Promise((r) => setTimeout(r, 20));
+    const after = c.sheet.el.querySelector(".chart-plot svg");
+    expect(after).not.toBe(before);
+    v.unmount();
+    document.documentElement.setAttribute("data-theme", "light");
+    await new Promise((r) => setTimeout(r, 20));
+    expect(c.sheet.el.querySelector(".chart-plot svg")).toBe(after);
+  });
+
+  it("profile chart redraws when data-theme changes", async () => {
+    const holder = document.createElement("div");
+    document.body.append(holder);
+    holder.append(profileChart([[0, 10, 1], [25, 12, 2], [50, 11, 3]]));
+    const before = holder.querySelector("svg");
+    document.documentElement.setAttribute("data-theme", "dark");
+    await new Promise((r) => setTimeout(r, 20));
+    expect(holder.querySelector("svg")).not.toBe(before);
   });
 
   it("about shows the model sections and repository links", () => {

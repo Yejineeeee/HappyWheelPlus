@@ -24,13 +24,13 @@ import type { AppContext, View } from "./types";
 const BAR_H = 26;
 
 function surfaceColors(): Record<SurfaceClass, string> {
-  // 점수 팔레트를 매끈함(좋음) → 비포장(나쁨) 순으로 쓰고, 정보 없음만 회색.
+  // 매끈함(초록·청록 계열) → 돌길·비포장(황갈색·적갈색) 순. 어두운 보라 둘이 구분되지 않던 문제를 피하고, 정보 없음만 회색.
   return {
     smooth: "#7ad151",
     paving: "#22a884",
     compacted: "#2a788e",
-    cobble: "#414487",
-    unpaved: "#440154",
+    cobble: "#b7791f",
+    unpaved: "#a8320a",
     unknown: cssVar("--muted", "#5B636E"),
   };
 }
@@ -144,7 +144,7 @@ function buildCharts(index: CityIndex): { node: HTMLElement; redraw(): void }[] 
     id: "chart-surface",
     title: "노면 구성",
     sentence: surfaceSentence(index),
-    legend: legendList(SURFACE_ORDER.map((c) => ({ label: SURFACE_LABEL[c], color: colors[c] }))),
+    legend: legendList(SURFACE_ORDER.map((c) => ({ label: SURFACE_LABEL[c], color: c === "unknown" ? "var(--muted)" : colors[c] }))),
     table: dataTable(
       "도시별 노면 구성(길이 기준 비율)",
       ["도시", ...SURFACE_ORDER.map((c) => SURFACE_LABEL[c])],
@@ -218,8 +218,8 @@ function buildCharts(index: CityIndex): { node: HTMLElement; redraw(): void }[] 
     title: "데이터 신뢰도",
     sentence: coverageSentence(index),
     legend: legendList([
-      { label: "노면 정보 비율", color: accent, shape: "dot" },
-      { label: "경사 정보 비율", color: warn, shape: "diamond" },
+      { label: "노면 정보 비율", color: "var(--accent)", shape: "dot" },
+      { label: "경사 정보 비율", color: "var(--warn)", shape: "diamond" },
     ]),
     table: dataTable(
       "도시별 정보가 있는 길의 비율(길이 기준)",
@@ -259,6 +259,7 @@ function buildCharts(index: CityIndex): { node: HTMLElement; redraw(): void }[] 
  */
 export function compareView(): View {
   let observer: ResizeObserver | null = null;
+  let themeObserver: MutationObserver | null = null;
   let restoreSnap: (() => void) | null = null;
   return {
     mount(ctx: AppContext) {
@@ -277,6 +278,11 @@ export function compareView(): View {
 
       const redrawAll = () => charts.forEach((c) => c.redraw());
       redrawAll();
+      // 테마를 바꾸면 SVG에 박힌 색이 낡으므로 data-theme이 바뀔 때 다시 그린다.
+      if (typeof MutationObserver !== "undefined") {
+        themeObserver = new MutationObserver(redrawAll);
+        themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+      }
       if (typeof ResizeObserver !== "undefined") {
         let lastW = root.clientWidth;
         observer = new ResizeObserver(() => {
@@ -302,6 +308,8 @@ export function compareView(): View {
     unmount() {
       observer?.disconnect();
       observer = null;
+      themeObserver?.disconnect();
+      themeObserver = null;
       restoreSnap?.();
       restoreSnap = null;
     },
