@@ -126,19 +126,29 @@ describe("nav view", () => {
       ],
       "호수 코스 길안내",
     ]);
-    const ins = ctx.sheet.el.querySelector('[aria-live="polite"]')!;
+    // 안내 카드는 지도 위에 떠 있고, 시트는 컨트롤 한 줄만 보이게 접힌다.
+    const card = ctx.shell.mapContainer.querySelector(".nav-card")!;
+    const ins = card.querySelector('[aria-live="polite"]')!;
     expect(ins.textContent).toMatch(/오른쪽/);
-    expect(ctx.sheet.el.querySelector('[aria-live="assertive"]')).not.toBeNull();
+    expect(card.querySelector('[aria-live="assertive"]')).not.toBeNull();
+    expect(ctx.sheet.snap()).toBe("peek");
+    expect(ctx.sheet.peekHeight()).toBeGreaterThan(132);
     vi.advanceTimersByTime(2000);
     expect(showUser).toHaveBeenCalled();
     expect(showRouteProgress).toHaveBeenCalled();
-    expect(ctx.sheet.el.textContent).toContain("남은 거리");
-    const sim = [...ctx.sheet.el.querySelectorAll("button")].find((b) => b.textContent === "가상 위치");
+    expect(card.textContent).toContain("남은 거리");
+    const controls = ctx.sheet.el.querySelector(".nav-controls")!;
+    const sim = [...controls.querySelectorAll("button")].find((b) => b.textContent === "가상 위치");
     expect(sim?.getAttribute("aria-pressed")).toBe("true");
+    const speed = controls.querySelector<HTMLButtonElement>(".nav-speed")!;
+    expect(speed.textContent).toBe("1×");
+    speed.click();
+    expect(speed.textContent).toBe("4×");
     v.unmount();
+    expect(ctx.shell.mapContainer.querySelector(".nav-card")).toBeNull();
   });
 
-  it("geolocation denied shows the simulation prompt and the button starts simulation", async () => {
+  it("geolocation denied replaces the checking text at once; the single source toggle starts simulation", async () => {
     let fail: PositionErrorCallback = () => {};
     setGeo({
       watchPosition: (_ok: PositionCallback, e: PositionErrorCallback) => {
@@ -151,13 +161,36 @@ describe("nav view", () => {
     const v = navView("paris", 0);
     await v.mount(ctx);
     await flush();
+    const card = ctx.shell.mapContainer.querySelector(".nav-card")!;
+    const ins = card.querySelector(".nav-instruction")!;
+    expect(ins.textContent).toBe("위치를 확인하는 중");
     fail({ code: 1, message: "" } as GeolocationPositionError);
-    expect(ctx.sheet.el.textContent).toContain("유럽에 있지 않아도 가상 위치로 길안내를 볼 수 있어요");
-    const btn = [...ctx.sheet.el.querySelectorAll("button")].find((b) => b.textContent === "가상 위치로 보기")!;
-    btn.click();
-    expect(ctx.sheet.el.textContent).not.toContain("유럽에 있지 않아도");
+    expect(ins.textContent).toBe("위치를 쓸 수 없어요 — 가상 위치로 볼 수 있어요");
+    expect(card.textContent).toContain("유럽에 있지 않아도 길안내를 볼 수 있어요");
+    // 따로 "가상 위치로 보기" 버튼은 없다. 토글 하나뿐이다.
+    const all = [...document.querySelectorAll("button")].map((b) => b.textContent);
+    expect(all).not.toContain("가상 위치로 보기");
+    expect(all.filter((t) => t === "가상 위치").length).toBe(1);
+    const sim = [...ctx.sheet.el.querySelectorAll<HTMLButtonElement>(".nav-controls button")].find((b) => b.textContent === "가상 위치")!;
+    sim.click();
+    expect(card.textContent).not.toContain("유럽에 있지 않아도");
     vi.advanceTimersByTime(1000);
     expect(showUser).toHaveBeenCalled();
+    expect(ins.textContent).not.toBe("위치를 쓸 수 없어요 — 가상 위치로 볼 수 있어요");
+    v.unmount();
+  });
+
+  it("unavailable position gets the same immediate copy", async () => {
+    let fail: PositionErrorCallback = () => {};
+    setGeo({ watchPosition: (_ok: PositionCallback, e: PositionErrorCallback) => ((fail = e), 1), clearWatch: vi.fn() });
+    const ctx = makeCtx();
+    const v = navView("paris", 0);
+    await v.mount(ctx);
+    await flush();
+    fail({ code: 2, message: "" } as GeolocationPositionError);
+    const card = ctx.shell.mapContainer.querySelector(".nav-card")!;
+    expect(card.querySelector(".nav-instruction")!.textContent).toBe("위치를 쓸 수 없어요 — 가상 위치로 볼 수 있어요");
+    expect(card.textContent).toContain("현재 위치를 가져오지 못했어요");
     v.unmount();
   });
 
@@ -170,14 +203,14 @@ describe("nav view", () => {
     await flush();
     const far = (accuracy: number) =>
       ok({ coords: { longitude: 8.3 + 0.002, latitude: 47.0003, heading: null, accuracy } } as GeolocationPosition);
-    const warn0 = ctx.sheet.el.querySelector<HTMLElement>('[aria-live="assertive"]')!;
+    const warn0 = ctx.shell.mapContainer.querySelector<HTMLElement>('[aria-live="assertive"]')!;
     far(200); // 정확도가 나쁘면 벗어난 것으로 보지 않는다
     far(200);
     expect(warn0.hidden).toBe(true);
     far(5);
     expect(warn0.hidden).toBe(true); // 한 번만으로는 경고하지 않는다
     far(5);
-    const warn = ctx.sheet.el.querySelector<HTMLElement>('[aria-live="assertive"]')!;
+    const warn = ctx.shell.mapContainer.querySelector<HTMLElement>('[aria-live="assertive"]')!;
     expect(warn.hidden).toBe(false);
     expect(warn.textContent).toMatch(/^경로에서 \d+m 벗어났어요$/);
     v.unmount();

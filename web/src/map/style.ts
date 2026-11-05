@@ -80,3 +80,43 @@ export function segmentAnchor(layers: StyleLayerInfo[]): string | undefined {
   if (last >= 0) return layers[last + 1]?.id;
   return layers.find((l) => l.type === "symbol")?.id;
 }
+
+type Box = { left: number; right: number; top: number; bottom: number; width: number; height: number };
+
+export type LabelSide = "right" | "left" | null;
+
+/** 점 왼쪽에 둘 때 라벨과 점 사이 간격(px). 오른쪽 간격(마커 CSS gap)과 같다. */
+export const LABEL_GAP = 6;
+
+/**
+ * 라벨 겹침 정리. labels[i]는 dots[i] 도시의 라벨(기본 위치: 점 오른쪽)이고 앞쪽일수록 우선한다(점수 높은 순).
+ * 오른쪽이 이미 남긴 라벨이나 다른 도시의 점과 겹치면 점 왼쪽을 시도하고, 그래도 겹치면 숨긴다(null).
+ * 아직 배치되지 않은(크기 0) 라벨은 오른쪽에 그대로 둔다.
+ */
+export function pickLabels(labels: Box[], dots: Box[]): LabelSide[] {
+  const kept: Box[] = [];
+  return labels.map((r, i) => {
+    if (r.width === 0 && r.height === 0) return "right";
+    const free = (c: Box) => {
+      const hit = (k: Box) => c.left < k.right && c.right > k.left && c.top < k.bottom && c.bottom > k.top;
+      return !kept.some(hit) && !dots.some((d, j) => j !== i && hit(d));
+    };
+    const d = dots[i];
+    // DOMRect는 펼침(...)으로 복사되지 않으므로 값을 하나씩 옮긴다.
+    const left: Box = {
+      left: d.left - LABEL_GAP - r.width,
+      right: d.left - LABEL_GAP,
+      top: r.top,
+      bottom: r.bottom,
+      width: r.width,
+      height: r.height,
+    };
+    for (const [side, c] of [["right", r], ["left", left]] as const) {
+      if (free(c)) {
+        kept.push(c);
+        return side;
+      }
+    }
+    return null;
+  });
+}

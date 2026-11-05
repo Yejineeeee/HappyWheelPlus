@@ -5,6 +5,7 @@ import type { AppMap } from "./map";
 import { prefersReducedMotion } from "./map";
 import {
   POI_PIXEL_RATIO,
+  pickLabels,
   poiCanvasSize,
   scoreColor,
   scoreColorExpression,
@@ -24,6 +25,8 @@ interface State {
   done: LngLat[] | null;
   /** 지도에서 강조할 경로. 나머지는 흐리게 그린다. */
   focus: RouteFocus;
+  /** 히트맵 불투명도 배율. 코스 화면에서는 경로가 먼저 보이도록 낮춘다. */
+  segOpacity: number;
   cityMarkers: maplibregl.Marker[];
   cityMarkerById: Map<string, maplibregl.Marker>;
   cityDeclutter: (() => void) | null;
@@ -40,6 +43,10 @@ function css(name: string): string {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || "#000000";
 }
 
+function isDark(): boolean {
+  return document.documentElement.getAttribute("data-theme") === "dark";
+}
+
 function getState(m: AppMap): State {
   let s = states.get(m);
   if (!s) {
@@ -50,6 +57,7 @@ function getState(m: AppMap): State {
       routes: null,
       done: null,
       focus: "accessible",
+      segOpacity: 1,
       cityMarkers: [],
       cityMarkerById: new Map(),
       cityDeclutter: null,
@@ -123,6 +131,7 @@ function stopDeclutter(m: AppMap, s: State): void {
   if (s.cityDeclutter) {
     m.map.off("moveend", s.cityDeclutter);
     m.map.off("resize", s.cityDeclutter);
+    m.map.off("idle", s.cityDeclutter);
   }
   s.cityDeclutter = null;
 }
@@ -133,6 +142,7 @@ export function showCityMarkers(m: AppMap, cities: CityEntry[], onSelect: (id: s
   for (const mk of s.cityMarkers) mk.remove();
   const sorted = [...cities].sort((a, b) => b.metrics.mean_score - a.metrics.mean_score);
   const labels: HTMLElement[] = [];
+  const dotEls: HTMLElement[] = [];
   const byId = new Map<string, maplibregl.Marker>();
   for (const c of sorted) {
     const score = Math.round(c.metrics.mean_score);
@@ -154,6 +164,7 @@ export function showCityMarkers(m: AppMap, cities: CityEntry[], onSelect: (id: s
     label.style.pointerEvents = "auto";
     btn.append(dot, label);
     labels.push(label);
+    dotEls.push(dot);
     btn.addEventListener("click", () => onSelect(c.id));
     // 점 중심이 도시 좌표에 오도록 왼쪽 기준으로 놓는다(왼쪽 여백 14 + 점 반지름 8).
     byId.set(
@@ -164,23 +175,33 @@ export function showCityMarkers(m: AppMap, cities: CityEntry[], onSelect: (id: s
   s.cityMarkers = [...byId.values()];
   s.cityMarkerById = byId;
 
-  // 점수가 높은 도시부터 라벨을 남기고, 먼저 남긴 라벨과 겹치는 라벨은 숨긴다. 점은 항상 보인다.
+  // 점은 항상 보인다. 점수가 높은 도시부터 라벨을 남기되, 이미 남긴 라벨이나 다른 도시의 점을 가리면 점 왼쪽으로
+  // 옮기고, 그래도 겹치면 숨긴다(라벨끼리만 비교하면 스위스 세 도시처럼 가까운 곳에서 라벨이 이웃 점을 덮는다).
   const declutter = () => {
-    for (const l of labels) l.style.display = "";
-    const kept: DOMRect[] = [];
     for (const l of labels) {
-      const r = l.getBoundingClientRect();
-      if (kept.some((k) => r.left < k.right && r.right > k.left && r.top < k.bottom && r.bottom > k.top)) {
-        l.style.display = "none";
-      } else {
-        kept.push(r);
-      }
+      l.style.display = "";
+      l.parentElement?.classList.remove("label-left");
     }
+    const side = pickLabels(
+      labels.map((l) => l.getBoundingClientRect()),
+      dotEls.map((d) => d.getBoundingClientRect()),
+    );
+    labels.forEach((l, i) => {
+      if (side[i] === null) l.style.display = "none";
+      else l.parentElement?.classList.toggle("label-left", side[i] === "left");
+    });
   };
-  s.cityDeclutter = declutter;
-  m.map.on("moveend", declutter);
-  m.map.on("resize", declutter);
-  requestAnimationFrame(declutter);
+  // 마커 위치는 이동·크기 변경 이벤트 뒤에 갱신되므로, 다음 프레임에 한 번만 잰다.
+  let frame = 0;
+  const schedule = () => {
+    cancelAnimationFrame(frame);
+    frame = requestAnimationFrame(declutter);
+  };
+  s.cityDeclutter = schedule;
+  m.map.on("moveend", schedule);
+  m.map.on("resize", schedule);
+  m.map.on("idle", schedule);
+  schedule();
 }
 
 /** 도시 마커 하나를 강조한다(비교 화면 막대와 연결). null이면 강조를 모두 끈다. */
@@ -206,8 +227,10 @@ function applySegments(m: AppMap, s: State): void {
         source: "segments",
         filter: ["==", ["get", "b"], false],
         layout: { "line-cap": "round", "line-join": "round" },
-        paint: { "line-color": scoreColorExpression(css("--muted")), "line-width": width, "line-opacity": 0.9 },
+        paint: { "line-color": scoreColorExpression(css("--muted")), "line-width": width, "line-opacity": scoredOpacity(s) },
       });
+  } else {
+    map.setPaintProperty("segments-scored", "line-opacity", scoredOpacity(s));
   }
   if (map.getLayer("segments-blocked")) map.removeLayer("segments-blocked");
   addOrdered(map,
@@ -217,8 +240,33 @@ function applySegments(m: AppMap, s: State): void {
       source: "segments",
       filter: ["==", ["get", "b"], true],
       layout: { "line-join": "round" },
-      paint: { "line-color": css("--blocked"), "line-width": width, "line-dasharray": [1.5, 1.5] },
+      paint: {
+        "line-color": css("--blocked"),
+        "line-width": width,
+        "line-dasharray": [1.5, 1.5],
+        "line-opacity": blockedOpacity(s),
+      },
     });
+}
+
+/** 기본 0.9. 코스 화면(배율 0.35)에서는 0.35. */
+function scoredOpacity(s: State): number {
+  return s.segOpacity < 1 ? s.segOpacity : 0.9;
+}
+
+/** 통과 불가 점선은 흐리게 해도 알아볼 수 있게 덜 낮춘다. */
+function blockedOpacity(s: State): number {
+  return s.segOpacity < 1 ? Math.min(1, s.segOpacity + 0.25) : 1;
+}
+
+/** 히트맵 불투명도. 코스 화면은 0.35, 도시 화면은 1(기본). */
+export function setSegmentsOpacity(m: AppMap, v: number): void {
+  const s = getState(m);
+  if (s.segOpacity === v) return;
+  s.segOpacity = v;
+  if (!styleReady(m)) return;
+  if (m.map.getLayer("segments-scored")) m.map.setPaintProperty("segments-scored", "line-opacity", scoredOpacity(s));
+  if (m.map.getLayer("segments-blocked")) m.map.setPaintProperty("segments-blocked", "line-opacity", blockedOpacity(s));
 }
 
 /** 히트맵 데이터가 이미 올라와 있는지. */
@@ -411,10 +459,11 @@ function openPoiPopup(
   }
 }
 
-export function showPois(m: AppMap, fc: GeoJSON.FeatureCollection, visible: Record<PoiKind, boolean>): void {
+/** visible을 생략하면 지금 켜 둔 종류를 그대로 쓴다(처음이면 벤치만 끈다). */
+export function showPois(m: AppMap, fc: GeoJSON.FeatureCollection, visible?: Record<PoiKind, boolean>): void {
   const s = getState(m);
   s.pois = fc;
-  s.visible = { ...visible };
+  s.visible = visible ? { ...visible } : (s.visible ?? { toilet: true, elevator: true, bench: false, fountain: true });
   if (m.isReady() && m.map.getLayer("pois") && m.map.getSource("pois")) {
     setSource(m.map, "pois", fc);
     applyPoiFilters(m, s);
@@ -470,7 +519,8 @@ function applyRoutes(m: AppMap, s: State): void {
     type: "line",
     source: "route-acc",
     layout: round,
-    paint: { "line-color": css("--surface"), "line-width": 8, "line-opacity": dim },
+    // 다크 테마에서는 라임 경로가 초록 히트맵과 섞이지 않게 테두리를 2px 두껍게.
+    paint: { "line-color": css("--surface"), "line-width": isDark() ? 10 : 8, "line-opacity": dim },
   });
   addOrdered(map, {
     id: "route-done",
@@ -566,16 +616,18 @@ export function showUser(m: AppMap, pos: LngLat | null, heading?: number | null)
     el.className = "user-marker";
     el.setAttribute("role", "img");
     el.setAttribute("aria-label", "현재 위치");
-    el.style.cssText = "width:18px;height:18px;";
+    // 22px 점 + 진행 방향 삼각형. 흰 테두리와 그림자로 경로·히트맵 위에서도 보인다.
+    el.style.cssText = "position:relative;width:22px;height:22px;";
     const arrow = document.createElement("span");
     arrow.dataset.role = "arrow";
     arrow.style.cssText =
-      "position:absolute;left:50%;top:-8px;margin-left:-6px;border:6px solid transparent;" +
-      "border-bottom:9px solid var(--route-acc);border-top:0;display:none";
+      "position:absolute;left:50%;top:-11px;margin-left:-7px;border:7px solid transparent;" +
+      "border-bottom:11px solid var(--route-acc);border-top:0;display:none;" +
+      "filter:drop-shadow(0 0 1px #fff) drop-shadow(0 0 1px #fff)";
     const dot = document.createElement("span");
     dot.style.cssText =
-      "display:block;width:18px;height:18px;border-radius:50%;background:var(--route-acc);" +
-      "border:3px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.3);box-sizing:border-box";
+      "display:block;width:22px;height:22px;border-radius:50%;background:var(--route-acc);" +
+      "border:4px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.35),0 2px 6px rgba(0,0,0,.3);box-sizing:border-box";
     el.append(arrow, dot);
     s.userMarker = new maplibregl.Marker({ element: el, rotationAlignment: "map" }).setLngLat(pos).addTo(m.map);
   }
@@ -595,6 +647,7 @@ export function clearCityLayers(m: AppMap): void {
   s.routes = null;
   s.done = null;
   s.focus = "accessible";
+  s.segOpacity = 1;
   for (const mk of s.cityMarkers) mk.remove();
   for (const mk of s.stopMarkers) mk.remove();
   stopDeclutter(m, s);

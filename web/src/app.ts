@@ -73,6 +73,8 @@ export function startApp(root: HTMLElement): void {
     if (key !== layerKey) clearCityLayers(map);
     layerKey = key;
 
+    // 접힌 높이는 화면마다 정한다(홈·길안내). 다른 화면은 기본값으로 되돌린다.
+    sheet.setPeek(null);
     const ctl = new AbortController();
     const view = makeView(route);
     current = { view, ctl };

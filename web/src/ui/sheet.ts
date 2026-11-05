@@ -5,15 +5,23 @@ export interface Sheet {
   setContent(node: Node): void;
   setSnap(s: Snap): void;
   snap(): Snap;
+  /** 접힌 높이(px)를 화면마다 바꾼다. null이면 기본값(132px). */
+  setPeek(px: number | null): void;
+  /** 지금 접힌 높이(px). */
+  peekHeight(): number;
 }
+
+export const DEFAULT_PEEK = 132;
+/** 이만큼 움직여야 끌기로 본다. 그보다 작으면 누르기(링크·버튼 클릭)로 둔다. */
+const DRAG_THRESHOLD = 6;
 
 const ORDER: Snap[] = ["peek", "half", "full"];
 const WIDE = "(min-width: 1024px)";
 
-function heightPx(s: Snap): number {
+function heightPx(s: Snap, peek: number): number {
   const vh = window.innerHeight || 800;
-  if (s === "peek") return 132;
-  return s === "half" ? vh * 0.5 : vh * 0.88;
+  if (s === "peek") return peek;
+  return s === "half" ? Math.max(peek, vh * 0.5) : vh * 0.88;
 }
 
 /** head가 있으면 손잡이와 본문 사이에 둔다(스크롤되지 않는 제목 영역). */
@@ -62,13 +70,10 @@ export function mountSheet(panel: HTMLElement, head?: HTMLElement): Sheet {
     sync();
   });
 
-  let startY = 0;
-  let startH = 0;
-  let dragging = false;
-  let dragged = false;
+  let peek = DEFAULT_PEEK;
 
   handle.addEventListener("click", () => {
-    if (dragged) return;
+    if (suppressClick) return;
     cycle();
   });
   handle.addEventListener("keydown", (e) => {
@@ -84,41 +89,70 @@ export function mountSheet(panel: HTMLElement, head?: HTMLElement): Sheet {
     }
   });
 
-  // 드래그: 핸들을 따라 높이가 바뀌고, 놓으면 가장 가까운 높이로 맞춘다.
-  handle.addEventListener("pointerdown", (e) => {
-    if (wide) return;
-    dragging = true;
+  // 끌기: 손잡이와 제목 영역 어디서든 시작한다. 조금 움직이기 전까지는 누르기로 두어 경로 표시 링크가 그대로 눌린다.
+  // 끌면 높이가 손가락을 따라가고, 놓으면 가장 가까운 높이로 맞춘다.
+  let startY = 0;
+  let startH = 0;
+  let pointerId: number | null = null;
+  let source: HTMLElement | null = null;
+  let dragged = false;
+  let suppressClick = false;
+
+  const onDown = (zone: HTMLElement) => (e: PointerEvent) => {
+    if (wide || (e.button !== undefined && e.button > 0)) return;
+    pointerId = e.pointerId;
+    source = zone;
     dragged = false;
     startY = e.clientY;
     startH = panel.getBoundingClientRect().height;
-    handle.setPointerCapture?.(e.pointerId);
-  });
-  handle.addEventListener("pointermove", (e) => {
-    if (!dragging) return;
-    const dy = startY - e.clientY;
-    if (Math.abs(dy) > 4) dragged = true;
-    if (!dragged) return;
-    panel.classList.add("dragging");
-    const h = Math.max(heightPx("peek"), Math.min(heightPx("full"), startH + dy));
-    panel.style.height = `${h}px`;
-  });
-  const end = (e: PointerEvent) => {
-    if (!dragging) return;
-    dragging = false;
-    handle.releasePointerCapture?.(e.pointerId);
-    panel.classList.remove("dragging");
-    if (dragged) {
-      const h = panel.getBoundingClientRect().height || startH;
-      let best: Snap = "peek";
-      for (const s of ORDER) if (Math.abs(heightPx(s) - h) < Math.abs(heightPx(best) - h)) best = s;
-      setSnap(best);
-      setTimeout(() => {
-        dragged = false;
-      }, 0);
-    }
   };
-  handle.addEventListener("pointerup", end);
-  handle.addEventListener("pointercancel", end);
+  const onMove = (e: PointerEvent) => {
+    if (pointerId === null || e.pointerId !== pointerId) return;
+    const dy = startY - e.clientY;
+    if (!dragged) {
+      if (Math.abs(dy) < DRAG_THRESHOLD) return;
+      dragged = true;
+      source?.setPointerCapture?.(e.pointerId);
+      panel.classList.add("dragging");
+    }
+    const h = Math.max(heightPx("peek", peek), Math.min(heightPx("full", peek), startH + dy));
+    panel.style.height = `${h}px`;
+  };
+  const end = (e: PointerEvent) => {
+    if (pointerId === null || e.pointerId !== pointerId) return;
+    pointerId = null;
+    source?.releasePointerCapture?.(e.pointerId);
+    source = null;
+    panel.classList.remove("dragging");
+    if (!dragged) return;
+    dragged = false;
+    const h = panel.getBoundingClientRect().height || startH;
+    let best: Snap = "peek";
+    for (const s of ORDER) if (Math.abs(heightPx(s, peek) - h) < Math.abs(heightPx(best, peek) - h)) best = s;
+    setSnap(best);
+    // 끌고 난 뒤 따라오는 클릭(링크 이동, 손잡이 전환)은 무시한다.
+    suppressClick = true;
+    setTimeout(() => {
+      suppressClick = false;
+    }, 0);
+  };
+  const zones = head ? [handle, head] : [handle];
+  for (const z of zones) {
+    z.addEventListener("pointerdown", onDown(z));
+    z.addEventListener("pointermove", onMove);
+    z.addEventListener("pointerup", end);
+    z.addEventListener("pointercancel", end);
+  }
+  head?.classList.add("sheet-drag-zone");
+  head?.addEventListener(
+    "click",
+    (e) => {
+      if (!suppressClick) return;
+      e.preventDefault();
+      e.stopPropagation();
+    },
+    true,
+  );
 
   sync();
   return {
@@ -129,5 +163,11 @@ export function mountSheet(panel: HTMLElement, head?: HTMLElement): Sheet {
     },
     setSnap,
     snap: () => current,
+    setPeek(px) {
+      peek = px ?? DEFAULT_PEEK;
+      if (px === null) panel.style.removeProperty("--sheet-collapsed");
+      else panel.style.setProperty("--sheet-collapsed", `${px}px`);
+    },
+    peekHeight: () => peek,
   };
 }

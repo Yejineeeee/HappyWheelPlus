@@ -6,6 +6,8 @@ import { scoreColor } from "../map/style";
 import { fitTo } from "./mapFit";
 import type { AppContext, View } from "./types";
 
+export const HOME_PEEK = 220;
+
 function groupByCountry(cities: CityEntry[]): [string, CityEntry[]][] {
   const groups = new Map<string, CityEntry[]>();
   for (const c of cities) {
@@ -85,6 +87,9 @@ export function homeView(): View {
     mount(ctx: AppContext) {
       const { cities } = ctx.index;
       ctx.shell.setTitle(null);
+      // 좁은 화면 첫 높이: 소개 문장 아래 도시 카드 한 장이 보이게.
+      ctx.sheet.setPeek(HOME_PEEK);
+      ctx.sheet.setSnap("peek");
 
       const root = el("div", { class: "home" });
       root.append(introSentence(cities));

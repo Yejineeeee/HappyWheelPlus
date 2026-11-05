@@ -20,22 +20,58 @@
   }
 }
 
+/* 지도 불러오기 알림: 지도 가운데(좁은 화면은 시트 위 남은 지도 가운데) */
 .map-overlay {
   position: absolute;
-  top: var(--space-3);
+  top: 28%;
   left: 50%;
-  transform: translateX(-50%);
+  transform: translate(-50%, -50%);
   z-index: 10;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 10px;
-  padding: var(--space-2) var(--space-4);
-  border-radius: var(--radius-pill);
+  gap: var(--space-3);
+  width: max-content;
+  max-width: calc(100% - 2 * var(--space-4));
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius-card);
   background: var(--surface);
   color: var(--ink);
   box-shadow: var(--shadow);
   font-size: 14px;
   font-weight: 600;
+  text-align: center;
+}
+@media (min-width: 1024px) {
+  .map-overlay { top: 50%; }
+}
+/* 끝을 알 수 없는 진행 막대. 움직임 줄이기면 가운데 멈춘 막대로 */
+.progress {
+  position: relative;
+  display: block;
+  width: 200px;
+  max-width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.progress-bar {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 40%;
+  border-radius: 2px;
+  background: var(--ink);
+  animation: hw-indeterminate 1.2s ease-in-out infinite;
+}
+@keyframes hw-indeterminate {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(250%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .progress-bar { animation: none; left: 30%; }
 }
 
 .visually-hidden {
@@ -82,6 +118,34 @@
 .course-score { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
 
 /* ---------- 도시 ---------- */
+/* 좁은 화면 접기 영역 "지도 보기 설정" */
+.disclosure { margin-top: var(--space-5); border-top: 1px solid var(--line); }
+.disclosure-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 48px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.disclosure-icon {
+  width: 9px;
+  height: 9px;
+  margin-right: 4px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(45deg) translateY(-2px);
+}
+.disclosure-btn[aria-expanded="true"] .disclosure-icon { transform: rotate(-135deg) translateY(-2px); }
+.disclosure-body[hidden] { display: none; }
+.disclosure-body .city-metrics { margin-top: 0; }
+.city.is-narrow > .section-title:first-child { margin-top: 0; }
 .city-metrics { margin-top: calc(-1 * var(--space-2)); }
 
 .legend ul { list-style: none; display: flex; gap: var(--space-4); margin: var(--space-2) 0 0; padding: 0; font-size: 13px; }
@@ -142,6 +206,8 @@
   box-sizing: border-box;
 }
 .city-dot::after { content: ""; position: absolute; inset: -14px; border-radius: 50%; }
+/* 오른쪽 자리가 겹칠 때 라벨을 점 왼쪽에 둔다(점 위치는 그대로). 6px = 점과 라벨 간격 */
+.city-marker.label-left .city-label { position: absolute; right: calc(100% - 14px + 6px); }
 /* 비교 화면 막대와 연결된 강조 */
 .city-marker.is-highlight { z-index: 2; }
 .city-marker.is-highlight .city-dot { transform: scale(1.4); box-shadow: 0 0 0 2px var(--ink); }
@@ -300,13 +366,37 @@
 
 /* ---------- 길안내 ---------- */
 .nav { display: flex; flex-direction: column; gap: var(--space-3); }
-.nav-instruction { margin: 0; padding: var(--space-4); border-radius: var(--radius-card); background: var(--accent); color: var(--on-accent); font-size: 22px; font-weight: 700; line-height: 1.3; letter-spacing: -0.01em; }
-.nav-meta { margin: 0; display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-4); color: var(--muted); font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; }
-.nav-warn { font-weight: 700; }
+/* 안내 카드: 지도 위쪽에 떠 있다(좁은 화면은 확대 버튼 자리를 비운다) */
+.nav-card {
+  position: absolute;
+  z-index: 6;
+  top: var(--space-3);
+  left: var(--space-3);
+  right: calc(var(--space-3) * 2 + 44px);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-card);
+  background: var(--accent);
+  color: var(--on-accent);
+  box-shadow: var(--shadow);
+}
+@media (min-width: 1024px) {
+  .nav-card { top: var(--space-4); left: var(--space-4); right: auto; width: min(440px, calc(100% - 2 * var(--space-4) - 72px)); }
+}
+.nav-instruction { margin: 0; font-size: 22px; font-weight: 700; line-height: 1.3; letter-spacing: -0.01em; }
+.nav-meta { margin: 0; display: flex; flex-wrap: wrap; gap: 0 var(--space-3); font-size: 14px; font-weight: 600; opacity: 0.85; font-variant-numeric: tabular-nums; }
+.nav-reason { margin: 0; font-size: 14px; line-height: 1.45; }
+.nav-reason[hidden] { display: none; }
+.nav-warn { margin-top: var(--space-1); font-weight: 700; }
 .nav-warn[hidden] { display: none; }
-.nav-prompt .notice { background: var(--surface-2); color: var(--ink); font-weight: 400; }
-.nav-prompt .notice p { margin: 0 0 var(--space-2); }
-.nav-controls { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+/* 시트: 접힌 상태에서 컨트롤 한 줄 */
+.nav-controls { display: flex; flex-wrap: nowrap; align-items: center; gap: var(--space-2); overflow-x: auto; scrollbar-width: none; }
+.nav-controls .pill { padding: 0 var(--space-3); white-space: nowrap; }
+.nav-more { display: flex; }
+.nav-more .btn { flex: 1; }
+@media (min-width: 1024px) { .nav-more .btn { flex: none; } }
 .pill-group { display: inline-flex; gap: 2px; padding: 4px; border-radius: var(--radius-pill); background: var(--surface-2); }
 .pill {
   min-height: 44px; min-width: 44px; padding: 0 var(--space-4); border: 0; border-radius: var(--radius-pill);
@@ -314,4 +404,6 @@
 }
 .pill:hover { color: var(--ink); }
 .pill[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
-.nav-controls > .pill { background: var(--surface-2); color: var(--ink); }
+.nav-controls > .pill { flex: none; background: var(--surface-2); color: var(--ink); }
+/* 홈 첫 높이(220px)에서 소개 문장 아래 카드 한 장이 다 보이도록 첫 나라 제목 위 여백을 줄인다 */
+.home .country-group:first-of-type .section-title { margin-top: var(--space-3); }

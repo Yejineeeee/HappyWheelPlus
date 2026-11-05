@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CityEntry, CityIndex, Course } from "../src/data/types";
 
 vi.mock("../src/data/load", () => ({
@@ -17,7 +17,7 @@ import { loadCourses, loadPois, loadSegments } from "../src/data/load";
 import { showCityMarkers, showPois, showSegments } from "../src/map/layers";
 import { mountSheet } from "../src/ui/sheet";
 import { cityView } from "../src/views/city";
-import { homeStats, homeView } from "../src/views/home";
+import { HOME_PEEK, homeStats, homeView } from "../src/views/home";
 import type { AppContext } from "../src/views/types";
 
 function city(id: string, name: string, country: string, score: number, n: number): CityEntry {
@@ -118,7 +118,10 @@ describe("city view", () => {
     await tick();
     expect(ctx.sheet.el.querySelectorAll(".course-card").length).toBe(3);
     expect(showSegments).not.toHaveBeenCalled();
-    expect(document.querySelector(".map-overlay")?.textContent).toContain("길 데이터를 불러오는 중");
+    const overlay = document.querySelector(".map-overlay")!;
+    expect(overlay.textContent).toBe("파리 길 데이터를 불러오는 중…");
+    expect(overlay.getAttribute("role")).toBe("status");
+    expect(overlay.querySelector(".progress-bar")).not.toBeNull();
     expect(ctx.titles[0]).toEqual(["파리", [{ label: "홈", href: "#/" }]]);
     expect(ctx.sheet.el.textContent).toContain("평균 점수");
   });
@@ -157,13 +160,17 @@ describe("city view", () => {
     const ctx = makeCtx();
     await cityView("paris").mount(ctx);
     await tick();
-    const retry = ctx.sheet.el.querySelector<HTMLButtonElement>(".block-error button")!;
-    expect(retry).not.toBeNull();
+    // 실패는 지도 위 같은 알림 자리에서 보이고, 거기서 다시 시도한다.
+    const box = ctx.shell.mapContainer.querySelector<HTMLElement>(".map-overlay")!;
+    expect(box.textContent).toContain("길 데이터를 불러오지 못했어요.");
+    const retry = box.querySelector<HTMLButtonElement>("button")!;
+    expect(retry.textContent).toBe("다시 시도");
     retry.click();
+    expect(box.textContent).not.toContain("불러오지 못했어요");
     await tick();
     expect(showSegments).toHaveBeenCalledTimes(1);
     expect(loadCourses).toHaveBeenCalledTimes(1);
-    expect(ctx.sheet.el.querySelector(".block-error")).toBeNull();
+    expect(ctx.shell.mapContainer.querySelector(".map-overlay")).toBeNull();
   });
 });
 
@@ -240,6 +247,71 @@ describe("city view lifecycle", () => {
     expect(text).toContain("점수 77");
     expect(text).toContain("보통");
     expect(text).not.toContain("별점");
+  });
+});
+
+describe("city view on narrow and wide screens", () => {
+  const orig = window.matchMedia;
+  afterEach(() => {
+    window.matchMedia = orig;
+  });
+  const stubWide = (wide: boolean) => {
+    window.matchMedia = ((q: string) => ({
+      matches: wide && q.includes("min-width: 1024px"),
+      media: q,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    })) as unknown as typeof window.matchMedia;
+  };
+
+  it("narrow: course cards come first, metrics/legend/facility chips sit in a collapsed disclosure", async () => {
+    stubWide(false);
+    vi.mocked(loadCourses).mockResolvedValue([course(0), course(1)]);
+    vi.mocked(loadSegments).mockReturnValue(new Promise(() => {}));
+    const ctx = makeCtx();
+    await cityView("paris").mount(ctx);
+    await tick();
+    const city = ctx.sheet.el.querySelector(".city")!;
+    // 첫 제목은 코스, 카드가 접기 영역보다 앞
+    expect(city.querySelector(".section-title")!.textContent).toBe("코스 2개");
+    const btn = city.querySelector<HTMLButtonElement>(".disclosure-btn")!;
+    expect(btn.textContent).toBe("지도 보기 설정");
+    const body = city.querySelector<HTMLElement>(".disclosure-body")!;
+    expect(btn.compareDocumentPosition(city.querySelector(".course-card")!) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
+    expect(btn.getAttribute("aria-expanded")).toBe("false");
+    expect(btn.getAttribute("aria-controls")).toBe(body.id);
+    expect(body.hidden).toBe(true);
+    expect(body.querySelector(".city-metrics")).not.toBeNull();
+    expect(body.querySelector(".legend")).not.toBeNull();
+    expect(body.querySelectorAll(".chip").length).toBe(4);
+    btn.click();
+    expect(btn.getAttribute("aria-expanded")).toBe("true");
+    expect(body.hidden).toBe(false);
+    btn.click();
+    expect(body.hidden).toBe(true);
+  });
+
+  it("wide: metrics stay open above the course list with no disclosure", async () => {
+    stubWide(true);
+    vi.mocked(loadCourses).mockResolvedValue([course(0)]);
+    vi.mocked(loadSegments).mockReturnValue(new Promise(() => {}));
+    const ctx = makeCtx();
+    await cityView("paris").mount(ctx);
+    await tick();
+    const city = ctx.sheet.el.querySelector(".city")!;
+    expect(city.querySelector(".disclosure")).toBeNull();
+    expect(city.firstElementChild!.classList.contains("city-metrics")).toBe(true);
+  });
+});
+
+describe("home sheet height", () => {
+  it("starts collapsed at 220px so one city card shows under the intro", async () => {
+    const ctx = makeCtx();
+    ctx.sheet.setSnap("half");
+    await homeView().mount(ctx);
+    expect(ctx.sheet.peekHeight()).toBe(HOME_PEEK);
+    expect(HOME_PEEK).toBe(220);
+    expect(ctx.sheet.snap()).toBe("peek");
   });
 });
 

@@ -85,4 +85,66 @@ describe("sheet", () => {
     s.setSnap("full");
     expect(s.snap()).toBe("peek");
   });
+
+  describe("dragging from the header", () => {
+    function setup() {
+      const head = document.createElement("div");
+      head.innerHTML = '<nav class="crumbs"><a href="#/paris">파리</a></nav><h1>코스</h1>';
+      const s = mountSheet(panel, head);
+      // happy-dom은 배치를 하지 않으므로 높이는 style.height(없으면 접힌 높이)로 본다.
+      panel.getBoundingClientRect = () =>
+        ({ height: parseFloat(panel.style.height) || s.peekHeight() }) as DOMRect;
+      Object.defineProperty(window, "innerHeight", { value: 800, configurable: true });
+      return { s, head, link: head.querySelector("a")! };
+    }
+    const ptr = (target: Element, type: string, y: number) =>
+      target.dispatchEvent(new PointerEvent(type, { pointerId: 1, clientY: y, bubbles: true }));
+
+    it("the title row is part of the drag area and snaps to the nearest height", () => {
+      const { s, head } = setup();
+      expect(head.classList.contains("sheet-drag-zone")).toBe(true);
+      ptr(head, "pointerdown", 700);
+      ptr(head, "pointermove", 600);
+      ptr(head, "pointermove", 420); // 132 + 280 = 412px → 절반(400px)에 가깝다
+      expect(panel.classList.contains("dragging")).toBe(true);
+      ptr(head, "pointerup", 420);
+      expect(panel.classList.contains("dragging")).toBe(false);
+      expect(s.snap()).toBe("half");
+    });
+
+    it("a tap on a breadcrumb link still works, but the click after a drag is swallowed", () => {
+      const { s, head, link } = setup();
+      let clicks = 0;
+      link.addEventListener("click", (e) => {
+        e.preventDefault();
+        clicks++;
+      });
+      // 누르기: 문턱보다 적게 움직임
+      ptr(link, "pointerdown", 700);
+      ptr(link, "pointermove", 697);
+      ptr(link, "pointerup", 697);
+      link.click();
+      expect(clicks).toBe(1);
+      expect(s.snap()).toBe("peek");
+      // 끌기 직후의 클릭은 링크로 가지 않는다
+      ptr(link, "pointerdown", 700);
+      ptr(link, "pointermove", 300);
+      ptr(link, "pointerup", 300);
+      link.click();
+      expect(clicks).toBe(1);
+      expect(s.snap()).not.toBe("peek");
+      void head;
+    });
+
+    it("setPeek changes the collapsed height and null restores the default", () => {
+      const s = mountSheet(panel);
+      expect(s.peekHeight()).toBe(132);
+      s.setPeek(220);
+      expect(s.peekHeight()).toBe(220);
+      expect(panel.style.getPropertyValue("--sheet-collapsed")).toBe("220px");
+      s.setPeek(null);
+      expect(s.peekHeight()).toBe(132);
+      expect(panel.style.getPropertyValue("--sheet-collapsed")).toBe("");
+    });
+  });
 });

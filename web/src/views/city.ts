@@ -6,6 +6,7 @@ import { showPois, showSegments } from "../map/layers";
 import { SCORE_STOPS, scoreColor } from "../map/style";
 import { badge, el, errorBlock, kvList, loadingBlock, scoreMeter } from "../ui/components";
 import { fmtM, scoreLabel } from "../ui/format";
+import { loadingOverlay, type LoadingOverlay } from "../ui/overlay";
 import { fitTo } from "./mapFit";
 import { notFoundView } from "./notFound";
 import type { AppContext, View } from "./types";
@@ -112,9 +113,31 @@ function legend(): HTMLElement {
   );
 }
 
+/** 좁은 화면 판단(시트 배치). 넓은 화면은 지표를 펼쳐 둔다. */
+function isNarrow(): boolean {
+  return !(window.matchMedia?.("(min-width: 1024px)").matches ?? false);
+}
+
+/** 접기 영역: aria-expanded 버튼 + 내용. 처음에는 접혀 있다. */
+export function disclosure(label: string, id: string, ...children: Node[]): HTMLElement {
+  const body = el("div", { class: "disclosure-body", id, hidden: "" }, ...children);
+  const btn = el(
+    "button",
+    { type: "button", class: "disclosure-btn", "aria-expanded": "false", "aria-controls": id },
+    el("span", {}, label),
+    el("span", { class: "disclosure-icon", "aria-hidden": "true" }),
+  );
+  btn.addEventListener("click", () => {
+    const open = btn.getAttribute("aria-expanded") !== "true";
+    btn.setAttribute("aria-expanded", String(open));
+    body.hidden = !open;
+  });
+  return el("div", { class: "disclosure" }, btn, body);
+}
+
 export function cityView(cityId: string): View {
   let inner: View | null = null;
-  let overlay: HTMLElement | null = null;
+  let overlay: LoadingOverlay | null = null;
 
   const removeOverlay = () => {
     overlay?.remove();
@@ -138,7 +161,6 @@ export function cityView(cityId: string): View {
         const visible: Record<PoiKind, boolean> = { toilet: true, elevator: true, bench: false, fountain: true };
         let pois: FeatureCollection<Point, PoiProps> | null = null;
 
-        const segError = el("div", { class: "load-error" });
         const poiError = el("div", { class: "load-error" });
         const counts = new Map<PoiKind, HTMLElement>();
         const countList = el("ul", { class: "poi-counts", "aria-label": "편의시설 수" });
@@ -159,37 +181,30 @@ export function cityView(cityId: string): View {
         const cards = el("div", { class: "course-list" });
         for (const course of courses) cards.append(courseCard(city, course, ctx));
 
+        const courseSection: Node[] = [el("h3", { class: "section-title" }, `코스 ${courses.length}개`), cards];
+        const settings: Node[] = [
+          metricsSection(city),
+          legend(),
+          el("h3", { class: "section-title" }, "편의시설"),
+          chips,
+          countList,
+          poiError,
+        ];
+        // 좁은 화면: 코스 카드를 맨 위에, 지표·범례·편의시설은 "지도 보기 설정" 접기 영역으로.
         ctx.sheet.setContent(
-          el(
-            "div",
-            { class: "city" },
-            metricsSection(city),
-            legend(),
-            segError,
-            el("h3", { class: "section-title" }, "편의시설"),
-            chips,
-            countList,
-            poiError,
-            el("h3", { class: "section-title" }, `코스 ${courses.length}개`),
-            cards,
-          ),
+          isNarrow()
+            ? el(
+                "div",
+                { class: "city is-narrow" },
+                ...courseSection,
+                disclosure("지도 보기 설정", `city-settings-${city.id}`, ...settings),
+              )
+            : el("div", { class: "city" }, ...settings, ...courseSection),
         );
 
         const loadSeg = (): void => {
-          segError.replaceChildren();
-          if (!overlay) {
-            // 빈 알림 영역을 먼저 넣고 다음 프레임에 문구를 채워야 스크린 리더가 읽는다.
-            const box = el("div", { class: "map-overlay", role: "status", "aria-live": "polite" });
-            overlay = box;
-            ctx.shell.mapContainer.append(box);
-            requestAnimationFrame(() => {
-              if (overlay !== box) return;
-              box.append(
-                el("span", { class: "spinner", "aria-hidden": "true" }),
-                el("span", {}, "길 데이터를 불러오는 중"),
-              );
-            });
-          }
+          if (overlay) overlay.loading();
+          else overlay = loadingOverlay(ctx.shell.mapContainer, `${city.name_ko} 길 데이터를 불러오는 중…`);
           loadSegments(city).then(
             (fc: FeatureCollection<LineString, SegmentProps>) => {
               if (ctx.signal.aborted) return;
@@ -198,8 +213,8 @@ export function cityView(cityId: string): View {
             },
             () => {
               if (ctx.signal.aborted) return;
-              removeOverlay();
-              segError.replaceChildren(errorBlock("길 데이터를 불러오지 못했어요.", loadSeg));
+              // 실패하면 지도 위 같은 자리에서 다시 시도한다.
+              overlay?.fail("길 데이터를 불러오지 못했어요.", loadSeg);
             },
           );
         };

@@ -16,6 +16,14 @@ type LngLat = [number, number];
 type SegFeature = { geometry: { coordinates: number[][] }; properties: SegmentProps };
 
 const MIN_ZOOM = 16;
+/** 위치를 쓸 수 없을 때 안내 카드 문구. 아래 시트의 "가상 위치" 토글로 바로 바꿀 수 있다. */
+export const NO_LOCATION_TEXT = "위치를 쓸 수 없어요 — 가상 위치로 볼 수 있어요";
+const NO_LOCATION_REASON: Record<"denied" | "unavailable", string> = {
+  denied: "위치 권한이 꺼져 있어요. 아래 ‘가상 위치’를 누르면 유럽에 있지 않아도 길안내를 볼 수 있어요.",
+  unavailable: "현재 위치를 가져오지 못했어요. 아래 ‘가상 위치’를 누르면 길안내를 볼 수 있어요.",
+};
+/** 좁은 화면 접힌 높이: 손잡이 + 제목 + 컨트롤 한 줄. */
+const NAV_PEEK = 184;
 
 /** 경로를 이루는 구간마다 경로 위 [시작, 끝] 거리를 구한다. 구간 좌표는 u→v 방향이라 진행 방향에 맞춰 뒤집어 잇는다. */
 export function segmentSpans(
@@ -70,6 +78,7 @@ export function navView(cityId: string, courseIndex: number): View {
   let nav: NavHandle | null = null;
   let mapRef: AppContext["map"] | null = null;
   let touchedMap = false;
+  let card: HTMLElement | null = null;
 
   const stopNav = (): void => {
     nav?.stop();
@@ -138,7 +147,9 @@ export function navView(cityId: string, courseIndex: number): View {
         const ins: Instruction[] = buildInstructions(coords, segmentSpans(coords, segIds, features), stops);
 
         touchedMap = true;
-        ctx.sheet.setSnap("half");
+        // 지도를 넓게 쓰도록 시트는 컨트롤 한 줄만 보이게 접고, 안내 카드는 지도 위쪽에 띄운다.
+        ctx.sheet.setPeek(NAV_PEEK);
+        ctx.sheet.setSnap("peek");
         showStops(ctx.map, course.stops);
         showRoutes(ctx.map, null, coords);
 
@@ -146,18 +157,36 @@ export function navView(cityId: string, courseIndex: number): View {
         const instructionEl = el("p", { class: "nav-instruction", "aria-live": "polite" }, "위치를 확인하는 중");
         const remainEl = el("span", {}, `남은 거리 ${fmtM(total)}`);
         const nextEl = el("span", {}, "");
+        const reasonEl = el("p", { class: "nav-reason", hidden: "" });
         const warnEl = el("p", { class: "notice notice-warn nav-warn", "aria-live": "assertive", hidden: "" });
-        const promptBox = el("div", { class: "nav-prompt" });
-        const controls = el("div", { class: "nav-controls" });
-        const root = el(
-          "div",
-          { class: "nav" },
+        card?.remove();
+        card = el(
+          "section",
+          { class: "nav-card", "aria-label": "길안내" },
           instructionEl,
           el("p", { class: "nav-meta" }, remainEl, nextEl),
+          reasonEl,
           warnEl,
-          promptBox,
-          controls,
         );
+        ctx.shell.mapContainer.append(card);
+        // 첫 위치가 오기 전에도 경로가 보이도록 경로 전체에 맞춘다(위쪽은 안내 카드 높이만큼 비운다).
+        const lons = coords.map((c) => c[0]);
+        const lats = coords.map((c) => c[1]);
+        const pad = fitPadding(ctx);
+        ctx.map.fitTo(
+          [
+            [Math.min(...lons), Math.min(...lats)],
+            [Math.max(...lons), Math.max(...lats)],
+          ],
+          { padding: { ...pad, top: Math.max(pad.top, card.offsetTop + card.offsetHeight + 24) } },
+        );
+        const controls = el("div", { class: "nav-controls" });
+        const end = el("a", { class: "btn btn-quiet nav-end", href: `#/${cityId}/${course.index}` }, "길안내 끝내기");
+        end.addEventListener("click", (e) => {
+          e.preventDefault();
+          ctx.navigate({ name: "course", city: cityId, course: course.index });
+        });
+        const root = el("div", { class: "nav" }, controls, el("div", { class: "nav-more" }, end));
 
         const pill = (label: string, pressed: boolean, onClick: () => void): HTMLButtonElement => {
           const b = el("button", { type: "button", class: "pill", "aria-pressed": String(pressed) }, label);
@@ -238,23 +267,19 @@ export function navView(cityId: string, courseIndex: number): View {
           if (source === "sim" && paused) nav.pause();
         };
 
+        // 위치를 쓸 수 없으면 "위치를 확인하는 중"을 바로 바꾼다. 따로 버튼을 두지 않고 시트의 위치 방식 토글 하나로 전환한다.
         const showPrompt = (reason: "denied" | "unavailable"): void => {
-          const useSim = el("button", { type: "button", class: "btn" }, "가상 위치로 보기");
-          useSim.addEventListener("click", () => switchSource("sim"));
-          promptBox.replaceChildren(
-            el(
-              "div",
-              { class: "notice", role: "note" },
-              el("p", {}, reason === "denied" ? "위치 권한이 꺼져 있어요." : "현재 위치를 가져오지 못했어요."),
-              el("p", {}, "유럽에 있지 않아도 가상 위치로 길안내를 볼 수 있어요"),
-              useSim,
-            ),
-          );
+          lastText = setText(instructionEl, NO_LOCATION_TEXT, lastText);
+          reasonEl.textContent = NO_LOCATION_REASON[reason];
+          reasonEl.removeAttribute("hidden");
+          ctx.sheet.setSnap("peek");
         };
 
         const switchSource = (s: NavSource): void => {
           source = s;
-          promptBox.replaceChildren();
+          reasonEl.textContent = "";
+          reasonEl.setAttribute("hidden", "");
+          if (s === "gps") lastText = setText(instructionEl, "위치를 확인하는 중", lastText);
           paused = false;
           renderControls();
           start();
@@ -270,6 +295,18 @@ export function navView(cityId: string, courseIndex: number): View {
             ),
           ];
           if (source === "sim") {
+            // 한 줄에 들어가도록 속도는 누를 때마다 1×↔4×로 바뀌는 버튼 하나로 둔다.
+            const speedBtn = el("button", { type: "button", class: "pill nav-speed" }, `${speed}×`);
+            const syncSpeed = () => {
+              speedBtn.textContent = `${speed}×`;
+              speedBtn.setAttribute("aria-label", `가상 위치 속도 ${speed}배, 누르면 ${speed === 1 ? 4 : 1}배`);
+            };
+            syncSpeed();
+            speedBtn.addEventListener("click", () => {
+              speed = speed === 1 ? 4 : 1;
+              nav?.setSpeed(speed);
+              syncSpeed();
+            });
             const pauseBtn = el("button", { type: "button", class: "pill" }, paused ? "계속" : "일시정지");
             pauseBtn.addEventListener("click", () => {
               paused = !paused;
@@ -277,28 +314,8 @@ export function navView(cityId: string, courseIndex: number): View {
               else nav?.resume();
               pauseBtn.textContent = paused ? "계속" : "일시정지";
             });
-            const speedGroup = el(
-              "div",
-              { class: "pill-group", role: "group", "aria-label": "가상 위치 속도" },
-              ...[1, 4].map((v) => {
-                const b = pill(`${v}×`, speed === v, () => {
-                  speed = v as 1 | 4;
-                  nav?.setSpeed(speed);
-                  for (const x of speedGroup.querySelectorAll("button")) {
-                    x.setAttribute("aria-pressed", String(x.textContent === `${speed}×`));
-                  }
-                });
-                return b;
-              }),
-            );
-            children.push(speedGroup, pauseBtn);
+            children.push(speedBtn, pauseBtn);
           }
-          const end = el("a", { class: "btn btn-quiet", href: `#/${cityId}/${course.index}` }, "길안내 끝내기");
-          end.addEventListener("click", (e) => {
-            e.preventDefault();
-            ctx.navigate({ name: "course", city: cityId, course: course.index });
-          });
-          children.push(end);
           controls.replaceChildren(...children);
         };
 
@@ -313,6 +330,8 @@ export function navView(cityId: string, courseIndex: number): View {
       stopNav();
       inner?.unmount();
       inner = null;
+      card?.remove();
+      card = null;
       if (touchedMap && mapRef) {
         showUser(mapRef, null);
         showRouteProgress(mapRef, null);

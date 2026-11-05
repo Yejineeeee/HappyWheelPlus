@@ -261,3 +261,9 @@ button.card:hover { border-color: var(--muted); }
   .spinner { animation: none; }
   .panel.sheet { transition: none; }
 }
+
+/* 좁은 화면: 손잡이와 제목 줄 전체가 시트를 끄는 영역 */
+@media (max-width: 1023.98px) {
+  .sheet-drag-zone { touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; }
+  .panel.sheet.dragging .sheet-drag-zone { cursor: grabbing; }
+}

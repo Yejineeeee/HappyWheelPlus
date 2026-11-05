@@ -12,7 +12,7 @@ export function fitPadding(ctx: AppContext): { top: number; right: number; botto
   // 전환 중에는 측정값이 낡으므로 시트가 향하는 높이를 직접 계산한다.
   const vh = window.innerHeight || 800;
   const snap = ctx.sheet.snap();
-  const sheetH = snap === "peek" ? 132 : snap === "half" ? vh * 0.5 : vh * 0.88;
+  const sheetH = snap === "peek" ? ctx.sheet.peekHeight() : snap === "half" ? vh * 0.5 : vh * 0.88;
   const mapH = ctx.shell.mapContainer.clientHeight || vh;
   return { top: 32, right: 24, bottom: Math.min(sheetH + 24, mapH * 0.75), left: 24 };
 }
