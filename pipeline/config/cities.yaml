@@ -71,6 +71,7 @@
 - id: milan
   name_ko: 밀라노
   country_ko: 이탈리아
+  radius_m: 2700  # 3000 m에서는 gzip 2.02 MB로 한도 초과
   courses:
     - name: "두오모–갤러리아"
       time_label: "~40분"
