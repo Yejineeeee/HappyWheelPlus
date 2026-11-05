@@ -6,15 +6,18 @@ vi.mock("../src/data/load", () => ({
   loadCourses: vi.fn(),
   loadSegments: vi.fn(),
   loadPois: vi.fn(),
+  loadGraph: vi.fn(),
 }));
 vi.mock("../src/map/layers", () => ({
   showRoutes: vi.fn(),
   showStops: vi.fn(),
   showBlockedAt: vi.fn(),
+  showSegments: vi.fn(),
+  hasSegments: vi.fn(),
 }));
 
-import { loadCourses, loadPois } from "../src/data/load";
-import { showBlockedAt, showRoutes, showStops } from "../src/map/layers";
+import { loadCourses, loadGraph, loadPois, loadSegments } from "../src/data/load";
+import { hasSegments, showBlockedAt, showRoutes, showSegments, showStops } from "../src/map/layers";
 import { profileChart } from "../src/ui/profileChart";
 import { mountSheet } from "../src/ui/sheet";
 import { courseView } from "../src/views/course";
@@ -100,6 +103,8 @@ const tick = () => new Promise((r) => setTimeout(r, 30));
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(loadPois).mockResolvedValue({ type: "FeatureCollection", features: [] });
+  vi.mocked(loadSegments).mockResolvedValue({ type: "FeatureCollection", features: [] });
+  vi.mocked(hasSegments).mockReturnValue(true);
 });
 
 describe("course view", () => {
@@ -225,6 +230,55 @@ describe("course view", () => {
   });
 });
 
+describe("course view conditions panel", () => {
+  it("button is enabled and toggles the panel with aria-expanded", async () => {
+    vi.mocked(loadCourses).mockResolvedValue([course()]);
+    vi.mocked(loadGraph).mockReturnValue(new Promise(() => {}));
+    const ctx = makeCtx();
+    await courseView("paris", 0).mount(ctx);
+    await tick();
+    const btn = ctx.sheet.el.querySelector<HTMLButtonElement>(".course-actions button")!;
+    expect(btn.disabled).toBe(false);
+    expect(btn.getAttribute("aria-expanded")).toBe("false");
+    const panel = ctx.sheet.el.querySelector<HTMLElement>(".conditions")!;
+    expect(panel.hidden).toBe(true);
+    btn.click();
+    expect(btn.getAttribute("aria-expanded")).toBe("true");
+    expect(panel.hidden).toBe(false);
+    expect(panel.querySelectorAll('input[type="range"]').length).toBe(4);
+    expect(panel.querySelectorAll('input[type="checkbox"]').length).toBe(4);
+    const slope = panel.querySelector<HTMLInputElement>('input[type="range"]')!;
+    expect(slope.getAttribute("aria-valuetext")).toBe("경사 중요도 1.0");
+    btn.click();
+    expect(panel.hidden).toBe(true);
+  });
+
+  it("deep link loads the heatmap only when none is shown", async () => {
+    vi.mocked(loadCourses).mockResolvedValue([course()]);
+    vi.mocked(hasSegments).mockReturnValue(false);
+    const ctx = makeCtx();
+    await courseView("paris", 0).mount(ctx);
+    await tick();
+    expect(loadSegments).toHaveBeenCalledTimes(1);
+    expect(showSegments).toHaveBeenCalledWith(ctx.map, expect.anything(), null);
+
+    vi.mocked(loadSegments).mockClear();
+    vi.mocked(hasSegments).mockReturnValue(true);
+    await courseView("paris", 0).mount(makeCtx());
+    await tick();
+    expect(loadSegments).not.toHaveBeenCalled();
+  });
+
+  it("publishes the default route as current route on mount", async () => {
+    vi.mocked(loadCourses).mockResolvedValue([course()]);
+    const ctx = makeCtx();
+    await courseView("paris", 0).mount(ctx);
+    await tick();
+    const { currentRoute } = await import("../src/core/conditions");
+    expect(currentRoute("paris", 0)?.source).toBe("default");
+  });
+});
+
 describe("profileChart", () => {
   it("profileChart handles all-null elevations", () => {
     const node = profileChart([[0, null, null], [25, null, null]]);
@@ -253,5 +307,12 @@ describe("profileChart", () => {
     expect(btn.getAttribute("aria-pressed")).toBe("false");
     btn.click();
     expect(btn.getAttribute("aria-pressed")).toBe("true");
+  });
+});
+
+describe("profileChart axis", () => {
+  it("puts the distance unit in tick labels instead of an axis label", () => {
+    const node = profileChart([[0, 1, 0], [500, 2, 3], [2500, 4, 2]]);
+    expect(node.textContent).not.toContain("거리(m)");
   });
 });

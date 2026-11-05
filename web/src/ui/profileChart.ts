@@ -30,6 +30,11 @@ export function steepBands(rows: ProfileRow[]): [number, number][] {
   return bands;
 }
 
+/** 가로축 눈금: 1km 이상이면 km, 아니면 m. */
+function distTick(d: number): string {
+  return d >= 1000 ? `${+(d / 1000).toFixed(1)}km` : `${d}m`;
+}
+
 function hasElevation(rows: ProfileRow[]): boolean {
   return rows.some((r) => r[1] !== null && Number.isFinite(r[1]));
 }
@@ -96,13 +101,15 @@ export function profileChart(rows: ProfileRow[], opts: { compare?: ProfileRow[] 
       width,
       height: 180,
       marginLeft: 44,
+      marginRight: 24,
       style: { background: "transparent", color: ink, fontSize: "12px" },
-      x: { label: "거리(m)", grid: false },
+      // 단위는 눈금 글자에 넣는다(축 이름이 마지막 눈금과 겹치지 않게).
+      x: { label: null, grid: false, ticks: 5, tickFormat: distTick },
       y: { label: "고도(m)", domain: [lo - pad, hi + pad], grid: true },
       marks,
     });
     svg.setAttribute("role", "img");
-    svg.setAttribute("aria-label", `고도 단면 그래프. 최고 ${Math.round(max)}m, 최저 ${Math.round(min)}m`);
+    svg.setAttribute("aria-label", `고도 단면 그래프(가로축은 이동 거리). 최고 ${Math.round(max)}m, 최저 ${Math.round(min)}m`);
     holder.replaceChildren(svg);
   };
 

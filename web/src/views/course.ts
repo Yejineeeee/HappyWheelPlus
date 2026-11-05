@@ -1,10 +1,12 @@
 import { pointLineDistM } from "../core/geo";
-import { loadCourses, loadPois } from "../data/load";
+import { setCurrentRoute } from "../core/conditions";
+import { loadCourses, loadPois, loadSegments } from "../data/load";
 import type { Course, PoiKind, RouteData } from "../data/types";
-import { showBlockedAt, showRoutes, showStops } from "../map/layers";
+import { hasSegments, showBlockedAt, showRoutes, showSegments, showStops } from "../map/layers";
 import { el, errorBlock, loadingBlock } from "../ui/components";
 import { fmtM, fmtPct } from "../ui/format";
 import { profileChart } from "../ui/profileChart";
+import { conditionsPanel, type ConditionsPanel } from "./conditions";
 import { fitTo } from "./mapFit";
 import { notFoundView } from "./notFound";
 import type { AppContext, View } from "./types";
@@ -175,6 +177,7 @@ export function courseView(cityId: string, courseIndex: number): View {
   let inner: View | null = null;
   let touchedMap = false;
   let mapRef: AppContext["map"] | null = null;
+  let panel: ConditionsPanel | null = null;
 
   return {
     async mount(ctx: AppContext) {
@@ -214,6 +217,18 @@ export function courseView(cityId: string, courseIndex: number): View {
         showRoutes(ctx.map, course.routes.shortest.coords, acc?.coords ?? null);
         showStops(ctx.map, course.stops);
         showBlockedAt(ctx.map, course.reachable ? null : course.blocked_at);
+        const initial = acc ?? course.routes.shortest;
+        setCurrentRoute(cityId, course.index, { coords: initial.coords, segIds: initial.seg_ids, source: "default" });
+        // 코스 주소로 바로 들어오면 히트맵이 아직 없으므로 여기서 불러온다. 도시 화면에서 왔으면 이미 있다.
+        if (!hasSegments(ctx.map)) {
+          loadSegments(city).then(
+            (fc) => {
+              if (ctx.signal.aborted || hasSegments(ctx.map)) return;
+              showSegments(ctx.map, fc, null);
+            },
+            () => {},
+          );
+        }
         const bounds = routeBounds(course);
         if (bounds) fitTo(ctx, bounds);
 
@@ -231,10 +246,14 @@ export function courseView(cityId: string, courseIndex: number): View {
         root.append(comparisonTable(course));
 
         root.append(el("h3", {}, "경사 단면"));
-        const profileRoute = acc ?? course.routes.shortest;
-        root.append(
-          profileChart(profileRoute.profile, acc ? { compare: course.routes.shortest.profile } : {}),
-        );
+        const profileHolder = el("div", { class: "profile-holder" });
+        const drawProfile = (rows: RouteData["profile"]): void => {
+          profileHolder.replaceChildren(
+            profileChart(rows, acc ? { compare: course.routes.shortest.profile } : {}),
+          );
+        };
+        drawProfile((acc ?? course.routes.shortest).profile);
+        root.append(profileHolder);
 
         root.append(el("h3", {}, "정류장"), stopsList(course));
 
@@ -244,13 +263,18 @@ export function courseView(cityId: string, courseIndex: number): View {
         const field = fieldCard(course);
         if (field) root.append(field);
 
-        const change = el(
-          "button",
-          { type: "button", class: "btn btn-quiet", disabled: "", "aria-disabled": "true" },
-          "내 조건으로 경로 바꾸기",
-        );
+        const change = el("button", { type: "button", class: "btn btn-quiet" }, "내 조건으로 경로 바꾸기");
         const nav = el("a", { href: `#/${cityId}/${course.index}/nav`, class: "btn" }, "길안내 시작");
         root.append(el("div", { class: "course-actions" }, change, nav));
+        panel?.destroy(false);
+        panel = null;
+        if (acc) {
+          panel = conditionsPanel({ ctx, city, course, button: change, onProfile: drawProfile });
+          root.append(panel.el);
+        } else {
+          change.setAttribute("disabled", "");
+          change.setAttribute("aria-disabled", "true");
+        }
         ctx.sheet.setContent(root);
 
         const loadPoiCounts = (): void => {
@@ -283,6 +307,8 @@ export function courseView(cityId: string, courseIndex: number): View {
     unmount() {
       inner?.unmount();
       inner = null;
+      panel?.destroy(touchedMap);
+      panel = null;
       if (touchedMap && mapRef) {
         showRoutes(mapRef, null, null);
         showStops(mapRef, []);

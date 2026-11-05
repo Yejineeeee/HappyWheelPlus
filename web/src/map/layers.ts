@@ -19,7 +19,7 @@ interface State {
   segments: GeoJSON.FeatureCollection | null;
   pois: GeoJSON.FeatureCollection | null;
   visible: Record<PoiKind, boolean> | null;
-  routes: { shortest: LngLat[] | null; accessible: LngLat[] | null } | null;
+  routes: { shortest: LngLat[] | null; accessible: LngLat[] | null; baseline: LngLat[] | null } | null;
   cityMarkers: maplibregl.Marker[];
   cityDeclutter: (() => void) | null;
   stopMarkers: maplibregl.Marker[];
@@ -83,6 +83,7 @@ const LAYER_ORDER = [
   "pois-minor",
   "pois",
   "route-short",
+  "route-base",
   "route-casing",
   "route-acc",
 ];
@@ -200,6 +201,11 @@ function applySegments(m: AppMap, s: State): void {
       layout: { "line-join": "round" },
       paint: { "line-color": css("--blocked"), "line-width": width, "line-dasharray": [1.5, 1.5] },
     });
+}
+
+/** 히트맵 데이터가 이미 올라와 있는지. */
+export function hasSegments(m: AppMap): boolean {
+  return getState(m).segments !== null;
 }
 
 export function showSegments(m: AppMap, fc: GeoJSON.FeatureCollection, scores: Float32Array | null): void {
@@ -416,14 +422,22 @@ function applyRoutes(m: AppMap, s: State): void {
   if (!s.routes || !styleReady(m)) return;
   setSource(map, "route-short", line(s.routes.shortest));
   setSource(map, "route-acc", line(s.routes.accessible));
+  setSource(map, "route-base", line(s.routes.baseline));
   const round = { "line-cap": "round", "line-join": "round" } as const;
-  for (const id of ["route-short", "route-casing", "route-acc"]) if (map.getLayer(id)) map.removeLayer(id);
+  for (const id of ["route-short", "route-base", "route-casing", "route-acc"]) if (map.getLayer(id)) map.removeLayer(id);
   addOrdered(map, {
     id: "route-short",
     type: "line",
     source: "route-short",
     layout: { "line-join": "round" },
     paint: { "line-color": css("--route-short"), "line-width": 3, "line-dasharray": [2, 2] },
+  });
+  addOrdered(map, {
+    id: "route-base",
+    type: "line",
+    source: "route-base",
+    layout: round,
+    paint: { "line-color": css("--route-short"), "line-width": 2 },
   });
   addOrdered(map, {
     id: "route-casing",
@@ -441,9 +455,15 @@ function applyRoutes(m: AppMap, s: State): void {
   });
 }
 
-export function showRoutes(m: AppMap, shortest: LngLat[] | null, accessible: LngLat[] | null): void {
+/** baseline: 내 조건 경로를 그릴 때 기본 접근성 경로를 얇은 회색 실선으로 함께 보여 준다. */
+export function showRoutes(
+  m: AppMap,
+  shortest: LngLat[] | null,
+  accessible: LngLat[] | null,
+  opts: { baseline?: LngLat[] | null } = {},
+): void {
   const s = getState(m);
-  s.routes = { shortest, accessible };
+  s.routes = { shortest, accessible, baseline: opts.baseline ?? null };
   applyRoutes(m, s);
 }
 
@@ -539,8 +559,8 @@ export function clearCityLayers(m: AppMap): void {
   if (styleReady(m)) {
     removeLayers(
       m.map,
-      ["segments-scored", "segments-blocked", "pois-hit-minor", "pois-hit", "pois-minor", "pois", "route-acc", "route-casing", "route-short"],
-      ["segments", "pois", "route-short", "route-acc"],
+      ["segments-scored", "segments-blocked", "pois-hit-minor", "pois-hit", "pois-minor", "pois", "route-acc", "route-casing", "route-base", "route-short"],
+      ["segments", "pois", "route-short", "route-acc", "route-base"],
     );
   }
 }

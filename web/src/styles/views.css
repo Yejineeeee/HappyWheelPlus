@@ -162,4 +162,22 @@
 .field-card h3 { margin: 0 0 4px; }
 .field-card p { margin: 0 0 4px; }
 .course-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
-.course-actions .btn[aria-disabled="true"] { opacity: 0.5; cursor: not-allowed; }
+.course-actions .btn[aria-disabled="true"], .course-actions .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* 내 조건 패널 */
+.conditions { margin-top: 12px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.conditions[hidden] { display: none; }
+.cond-hint, .cond-note { margin: 0 0 8px; color: var(--muted); font-size: 14px; }
+.cond-sliders { display: flex; flex-direction: column; gap: 4px; }
+.cond-row { display: grid; grid-template-columns: 1fr auto; align-items: center; column-gap: 8px; }
+.cond-row label { font-weight: 600; }
+.cond-row input[type="range"] { grid-column: 1 / -1; width: 100%; min-height: 44px; margin: 0; accent-color: var(--accent); }
+.cond-value { font-variant-numeric: tabular-nums; font-weight: 700; min-width: 2.5em; text-align: right; }
+.cond-pois { margin: 8px 0; padding: 0; border: 0; display: flex; flex-wrap: wrap; gap: 4px 16px; }
+.cond-pois legend { padding: 0; margin-bottom: 4px; font-weight: 600; }
+.cond-check { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; cursor: pointer; }
+.cond-check input { width: 22px; height: 22px; accent-color: var(--accent); }
+.cond-actions { margin: 4px 0 8px; }
+.cond-status { min-height: 1.5em; color: var(--muted); font-size: 14px; }
+.cond-warnings .notice { margin-top: 8px; }
+.diff-table { margin-top: 8px; }
