@@ -139,3 +139,27 @@
 }
 .city-dot { position: relative; }
 .city-dot::after { content: ""; position: absolute; inset: -14px; border-radius: 50%; }
+
+/* 코스 상세 */
+.course { display: flex; flex-direction: column; gap: 4px; }
+.course h3 { margin: 16px 0 6px; font-size: 16px; }
+.course-summary { margin: 0 0 8px; font-size: 18px; font-weight: 700; }
+.notice { margin: 0 0 8px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--warn); color: var(--warn); }
+.metric-table td.better { color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.metric-table td.better::before { content: "▲ "; font-size: 11px; }
+.profile-plot { width: 100%; min-height: 180px; }
+.profile-plot svg { max-width: 100%; display: block; }
+.profile-summary, .profile-empty { margin: 6px 0 0; color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; }
+.stop-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.stop-list li { display: flex; align-items: center; gap: 10px; }
+.stop-no {
+  flex: none; width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--accent);
+  display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.poi-near ul { margin: 0; padding-left: 18px; }
+.field-card { margin-top: 12px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.field-card h3 { margin: 0 0 4px; }
+.field-card p { margin: 0 0 4px; }
+.course-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.course-actions .btn[aria-disabled="true"] { opacity: 0.5; cursor: not-allowed; }

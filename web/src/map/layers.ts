@@ -24,6 +24,7 @@ interface State {
   cityDeclutter: (() => void) | null;
   stopMarkers: maplibregl.Marker[];
   userMarker: maplibregl.Marker | null;
+  blockedMarker: maplibregl.Marker | null;
   poiHandlersBound: boolean;
   popup: maplibregl.Popup | null;
 }
@@ -46,6 +47,7 @@ function getState(m: AppMap): State {
       cityDeclutter: null,
       stopMarkers: [],
       userMarker: null,
+      blockedMarker: null,
       poiHandlersBound: false,
       popup: null,
     };
@@ -464,6 +466,24 @@ export function showStops(m: AppMap, stops: Stop[]): void {
   });
 }
 
+/** 휠체어로 막힌 지점 표시. pos가 null이면 지운다. */
+export function showBlockedAt(m: AppMap, pos: LngLat | null): void {
+  const s = getState(m);
+  s.blockedMarker?.remove();
+  s.blockedMarker = null;
+  if (!pos) return;
+  const el = document.createElement("div");
+  el.className = "blocked-marker";
+  el.setAttribute("role", "img");
+  el.setAttribute("aria-label", "막힌 지점");
+  el.textContent = "✕";
+  el.style.cssText =
+    "width:28px;height:28px;border-radius:50%;box-sizing:border-box;display:flex;align-items:center;" +
+    "justify-content:center;background:var(--surface);color:var(--blocked);border:2px dashed var(--blocked);" +
+    "font:700 14px/1 var(--font);";
+  s.blockedMarker = new maplibregl.Marker({ element: el }).setLngLat(pos).addTo(m.map);
+}
+
 // ---------- 사용자 위치 ----------
 
 export function showUser(m: AppMap, pos: LngLat | null, heading?: number | null): void {
@@ -509,6 +529,8 @@ export function clearCityLayers(m: AppMap): void {
   for (const mk of s.stopMarkers) mk.remove();
   stopDeclutter(m, s);
   s.userMarker?.remove();
+  s.blockedMarker?.remove();
+  s.blockedMarker = null;
   s.popup?.remove();
   s.popup = null;
   s.cityMarkers = [];

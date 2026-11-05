@@ -7,6 +7,7 @@ import { errorBlock, loadingBlock } from "./ui/components";
 import { mountSheet } from "./ui/sheet";
 import { mountShell } from "./ui/shell";
 import { cityView } from "./views/city";
+import { courseView } from "./views/course";
 import { homeView } from "./views/home";
 import { notFoundView } from "./views/notFound";
 import { placeholderView } from "./views/placeholder";
@@ -19,7 +20,7 @@ function makeView(route: Route): View {
     case "city":
       return cityView(route.city);
     case "course":
-      return placeholderView("코스");
+      return courseView(route.city, route.course);
     case "nav":
       return placeholderView("길안내");
     case "compare":

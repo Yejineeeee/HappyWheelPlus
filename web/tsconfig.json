@@ -8,7 +8,8 @@
     "noEmit": true,
     "skipLibCheck": true,
     "isolatedModules": true,
-    "types": ["vite/client"]
+    "types": ["vite/client"],
+    "paths": { "@observablehq/plot": ["./node_modules/@observablehq/plot/src/index.d.ts"] }
   },
   "include": ["src", "vite.config.ts"]
 }
