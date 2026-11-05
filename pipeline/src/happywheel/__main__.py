@@ -59,7 +59,7 @@ def _cmd_run(args) -> int:
             print(f"[{city.id}] pois...", flush=True)
             pois = fetch_pois(city, cache)
             outputs, m = build_city_outputs(city, G, pois, src)
-            write_outputs(out, city.id, outputs)
+            m["data_version"] = write_outputs(out, city.id, outputs)
             metrics[city.id] = m
             print(f"[{city.id}] done in {time.time() - t0:.0f}s "
                   f"(edges={G.number_of_edges()}, mean_score={m['mean_score']})", flush=True)

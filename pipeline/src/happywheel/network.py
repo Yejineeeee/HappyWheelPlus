@@ -92,6 +92,11 @@ def parse_incline(value) -> float | None:
     return None
 
 
+def is_span(d: dict) -> bool:
+    """True for bridge/tunnel edges, whose DEM samples show the ground below, not the deck."""
+    return any(x != "no" for x in _values(d.get("bridge")) + _values(d.get("tunnel")))
+
+
 def _edge_coords(G, u, v, d) -> list[tuple[float, float]]:
     geom = d.get("geometry")
     if geom is not None:
@@ -110,7 +115,7 @@ def annotate(G: nx.MultiGraph, src: ElevationSource) -> None:
         length = d.get("length")
         d["length"] = float(length) if length is not None else line_length_m(coords)
         incline = parse_incline(d.get("incline"))
-        skip_dem = any(x != "no" for x in _values(d.get("bridge")) + _values(d.get("tunnel")))
+        skip_dem = is_span(d)
         samples = None
         if incline is None and not skip_dem:
             samples = sample_along(coords, STEP_M)

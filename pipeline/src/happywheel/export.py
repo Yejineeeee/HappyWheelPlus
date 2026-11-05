@@ -1,6 +1,8 @@
 """Build and write the web data contract (segments, graph, pois, courses, cities index)."""
 from __future__ import annotations
 
+import bisect
+import hashlib
 import json
 import math
 from datetime import datetime, timezone
@@ -9,12 +11,14 @@ from pathlib import Path
 import networkx as nx
 
 from .config import City
-from .elevation import ElevationSource, profile
-from .routing import ALPHA, RouteResult, route, route_metrics
+from .elevation import ElevationSource
+from .geo import line_length_m, sample_along
+from .network import is_span
+from .pois import POI_KINDS
+from .routing import ALPHA, RouteResult, oriented_coords, route, route_metrics
 from .scoring import DEFAULT_WEIGHTS
 
 SURFACE_CLASSES = ("smooth", "paving", "compacted", "cobble", "unpaved", "unknown")
-POI_KINDS = ("toilet", "elevator", "bench", "fountain")
 APPROX_SNAP_M = 150.0  # stop farther than this from the routable network -> course is approximate
 
 
@@ -29,17 +33,52 @@ def _pt(c) -> list[float]:
     return [round(float(c[0]), 5), round(float(c[1]), 5)]
 
 
-def _route_json(G, r: RouteResult, seg_of: dict, toilets, src) -> dict:
+def route_profile(G, r: RouteResult, node_elev: dict, src: ElevationSource,
+                  step_m: float = 25.0) -> list[list]:
+    """Rows [dist_m, elev_m|None, grade_pct|None] every step_m along the route.
+
+    Elevation comes from the DEM, except on bridge/tunnel edges where it is linearly
+    interpolated between the edge's end-node elevations (the DEM would show the river or
+    ground below the deck). grade_pct is the grade_max of the edge the sample lies on."""
+    if len(r.coords) < 2 or not r.edges:
+        return []
+    starts, spans = [], []
+    cum = 0.0
+    for u, v, k in r.edges:
+        d = G[u][v][k]
+        length = line_length_m(oriented_coords(G, u, d))
+        starts.append(cum)
+        spans.append((cum, cum + length, u, v, d))
+        cum += length
+    pts = sample_along(r.coords, step_m)
+    owner = [min(max(bisect.bisect_right(starts, dist + 1e-6) - 1, 0), len(spans) - 1)
+             for _, _, dist in pts]
+    dem_idx = [i for i, o in enumerate(owner) if not is_span(spans[o][4])]
+    dem = src.elevations([(pts[i][0], pts[i][1]) for i in dem_idx])
+    elev: list[float | None] = [None] * len(pts)
+    for i, e in zip(dem_idx, dem):
+        elev[i] = e
+    for i, o in enumerate(owner):
+        a, b, u, v, d = spans[o]
+        if is_span(d):
+            ea, eb = node_elev.get(u), node_elev.get(v)
+            if ea is not None and eb is not None:
+                t = 0.0 if b <= a else min(max((pts[i][2] - a) / (b - a), 0.0), 1.0)
+                elev[i] = ea + (eb - ea) * t
+    return [[_num(pts[i][2]), _num(elev[i]), _num(spans[o][4].get("grade_max"))]
+            for i, o in enumerate(owner)]
+
+
+def _route_json(G, r: RouteResult, seg_of: dict, toilets, src, node_elev: dict) -> dict:
     m = route_metrics(G, r, toilets)
     for k, v in list(m.items()):
         if isinstance(v, float) or v is None:
             m[k] = _num(v)
-    prof = profile(r.coords, src, step_m=25.0) if len(r.coords) >= 2 else []
     return {
         "coords": [_pt(c) for c in r.coords],
         "seg_ids": [seg_of[e] for e in r.edges],
         "metrics": m,
-        "profile": [[_num(d), _num(e)] for d, e in prof],
+        "profile": route_profile(G, r, node_elev, src),
     }
 
 
@@ -61,7 +100,8 @@ def _city_metrics(city: City, G, pois: list[dict]) -> dict:
             w_score += n * d["score"]
             w_len += n
     t = total or 1.0
-    area = math.pi * city.radius_m ** 2 / 1e6
+    # graph_from_point / features_from_point cover a square of side 2r (dist_type="bbox")
+    area = (2 * city.radius_m) ** 2 / 1e6
     counts = dict.fromkeys(POI_KINDS, 0)
     for p in pois:
         if p["kind"] in counts:
@@ -85,18 +125,20 @@ def build_city_outputs(city: City, G: nx.MultiGraph, pois: list[dict],
     metrics dict (incl. course_count) to pass to build_cities_index."""
     node_idx = {n: i for i, n in enumerate(G.nodes)}
     nodes = [_pt((G.nodes[n]["x"], G.nodes[n]["y"])) for n in G.nodes]
+    elevs = src.elevations([(G.nodes[n]["x"], G.nodes[n]["y"]) for n in G.nodes])
+    node_elev = dict(zip(G.nodes, elevs))
 
     seg_of: dict[tuple, int] = {}
     features, rows = [], []
     for sid, (u, v, k, d) in enumerate(G.edges(keys=True, data=True)):
         seg_of[(u, v, k)] = sid
         seg_of[(v, u, k)] = sid
-        coords = [_pt(c) for c in d["coords"]]
+        coords = [_pt(c) for c in oriented_coords(G, u, d)]  # u -> v, as in graph.json
         features.append({
             "type": "Feature", "id": sid,
             "geometry": {"type": "LineString", "coordinates": coords},
             "properties": {
-                "id": sid, "len": _num(d["length"]),
+                "len": _num(d["length"]),
                 "p_slope": _num(d["p_slope"]), "p_surface": _num(d["p_surface"]),
                 "p_kerb": _num(d["p_kerb"]), "p_unc": _num(d["p_unc"]),
                 "grade_max": _num(d.get("grade_max")),
@@ -107,7 +149,7 @@ def build_city_outputs(city: City, G: nx.MultiGraph, pois: list[dict],
         })
         flags = (1 if d["blocked"] else 0) | (2 if d["steps"] else 0) | (4 if d["wc_yes"] else 0)
         rows.append([node_idx[u], node_idx[v], _num(d["length"]), _num(d["p_slope"]),
-                     _num(d["p_surface"]), _num(d["p_kerb"]), _num(d["p_unc"]), flags, sid])
+                     _num(d["p_surface"]), _num(d["p_kerb"]), _num(d["p_unc"]), flags])
 
     toilets = [(p["lon"], p["lat"]) for p in pois if p["kind"] == "toilet"]
     courses = []
@@ -115,8 +157,8 @@ def build_city_outputs(city: City, G: nx.MultiGraph, pois: list[dict],
         stops = [(s.lon, s.lat) for s in c.stops]
         short = route(G, stops, "shortest")
         acc = route(G, stops, "accessible")
-        sj = _route_json(G, short, seg_of, toilets, src) if short.coords else None
-        aj = _route_json(G, acc, seg_of, toilets, src) if acc.reachable else None
+        sj = _route_json(G, short, seg_of, toilets, src, node_elev) if short.coords else None
+        aj = _route_json(G, acc, seg_of, toilets, src, node_elev) if acc.reachable else None
         comparison = None
         if aj is not None and sj is not None:
             comparison = {
@@ -147,20 +189,25 @@ def build_city_outputs(city: City, G: nx.MultiGraph, pois: list[dict],
 
     outputs: dict[str, object] = {
         "segments.geojson": {"type": "FeatureCollection", "features": features},
-        "graph.json": {"nodes": nodes, "edges": rows},
+        "graph.json": {"nodes": nodes, "elev": [_num(e) for e in elevs], "edges": rows},
         "pois.geojson": {"type": "FeatureCollection", "features": poi_features},
         "courses.json": courses,
     }
     return outputs, _city_metrics(city, G, pois)
 
 
-def write_outputs(out_dir: Path, city_id: str, outputs: dict[str, object]) -> None:
+def write_outputs(out_dir: Path, city_id: str, outputs: dict[str, object]) -> str:
+    """Write the city's files; return data_version = first 12 hex chars of the sha256 over
+    the written files' bytes, concatenated in file-name order."""
     d = Path(out_dir) / city_id
     d.mkdir(parents=True, exist_ok=True)
-    for name, obj in outputs.items():
-        (d / name).write_text(
-            json.dumps(obj, ensure_ascii=False, allow_nan=False, separators=(",", ":")),
-            encoding="utf-8")
+    digest = hashlib.sha256()
+    for name in sorted(outputs):
+        data = json.dumps(outputs[name], ensure_ascii=False, allow_nan=False,
+                          separators=(",", ":")).encode("utf-8")
+        (d / name).write_bytes(data)
+        digest.update((d / name).read_bytes())
+    return digest.hexdigest()[:12]
 
 
 def build_cities_index(cities: list[City], per_city_metrics: dict[str, dict]) -> dict:
@@ -172,7 +219,8 @@ def build_cities_index(cities: list[City], per_city_metrics: dict[str, dict]) ->
         out.append({
             "id": c.id, "name_ko": c.name_ko, "country_ko": c.country_ko,
             "center": _pt(c.center), "radius_m": round(c.radius_m, 1),
-            "metrics": {k: v for k, v in m.items() if k != "course_count"},
+            "data_version": m["data_version"],
+            "metrics": {k: v for k, v in m.items() if k not in ("course_count", "data_version")},
             "course_count": m["course_count"],
         })
     return {
