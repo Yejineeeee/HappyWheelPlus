@@ -105,7 +105,7 @@ export function diffTable(base: RouteMetrics, mine: RouteMetrics): HTMLElement {
 export interface ConditionsPanel {
   el: HTMLElement;
   /** 지도·저장소를 기본 경로 상태로 되돌리고 타이머를 정리한다. */
-  destroy(restore: boolean): void;
+  destroy(): void;
 }
 
 export interface PanelOpts {
@@ -298,7 +298,6 @@ export function conditionsPanel(opts: PanelOpts): ConditionsPanel {
         setStatus("");
         // 열기 전에 조정한 값이 있으면 바로 반영한다.
         recompute();
-        setStatus("");
       },
       () => {
         loading = false;
@@ -321,11 +320,10 @@ export function conditionsPanel(opts: PanelOpts): ConditionsPanel {
 
   return {
     el: root,
-    destroy(restore) {
+    destroy() {
       dead = true;
       if (timer) clearTimeout(timer);
       timer = null;
-      if (restore && appliedCustom && segFc) showSegments(ctx.map, segFc, null);
       appliedCustom = false;
     },
   };

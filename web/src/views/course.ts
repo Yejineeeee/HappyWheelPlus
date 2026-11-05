@@ -266,7 +266,7 @@ export function courseView(cityId: string, courseIndex: number): View {
         const change = el("button", { type: "button", class: "btn btn-quiet" }, "내 조건으로 경로 바꾸기");
         const nav = el("a", { href: `#/${cityId}/${course.index}/nav`, class: "btn" }, "길안내 시작");
         root.append(el("div", { class: "course-actions" }, change, nav));
-        panel?.destroy(false);
+        panel?.destroy();
         panel = null;
         if (acc) {
           panel = conditionsPanel({ ctx, city, course, button: change, onProfile: drawProfile });
@@ -307,7 +307,7 @@ export function courseView(cityId: string, courseIndex: number): View {
     unmount() {
       inner?.unmount();
       inner = null;
-      panel?.destroy(touchedMap);
+      panel?.destroy();
       panel = null;
       if (touchedMap && mapRef) {
         showRoutes(mapRef, null, null);
