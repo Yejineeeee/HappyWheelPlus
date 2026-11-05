@@ -278,7 +278,7 @@ OpenStreetMap 보행망 약 28만 구간(약 7,853 km)을 경사, 노면, 연석
 | 보행 네트워크, 편의시설 | 구간, 노면·연석·계단·휠체어 태그, 화장실·엘리베이터·벤치·음수대 | © OpenStreetMap contributors, ODbL 1.0 |
 | 고도 (GLO-30, 30 m) | 구간 경사, 경사 단면 | Copernicus DEM GLO-30. © DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018 provided under COPERNICUS by the European Union and ESA; all rights reserved. |
 | 배경 지도 | 웹 지도 타일 | OpenFreeMap, © OpenMapTiles, © OpenStreetMap contributors |
-| 탐방 현장 기록 | 코스 15개의 정류장, 10개 코스의 난이도와 메모 | 2025–26 동계 해외문화탐방 8조 직접 기록 (`pipeline/config/cities.yaml`) |
+| 탐방 현장 기록 | 코스 15개의 정류장, 10개 코스의 난이도와 메모 | 2025 동계 해외문화탐방 8조 직접 기록 (`pipeline/config/cities.yaml`) |
 
 <br>
 
@@ -355,4 +355,4 @@ npm run e2e        # Playwright 스모크 테스트 (처음 한 번 npx playwrig
 - European Space Agency, Copernicus DEM — Global and European Digital Elevation Model (GLO-30).
 - OpenMapTiles Vector Tile Schema, OpenFreeMap.
 - MapLibre GL JS 문서.
-- 2025–26 동계 해외문화탐방 8조 발표자료 ([PDF](docs/field-trip-2026-01-27.pdf)).
+- 2025 동계 해외문화탐방 8조 발표자료 ([PDF](docs/field-trip-2026-01-27.pdf)).
