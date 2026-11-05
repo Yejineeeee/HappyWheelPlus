@@ -82,3 +82,23 @@ def make_grid_graph(tags_by_edge: dict | None = None,
 
 def first_edge(G: nx.MultiGraph, u: int = 0, v: int = 1) -> dict:
     return G.edges[u, v, 0]
+
+
+def make_route_graph() -> tuple[nx.MultiGraph, dict]:
+    """Grid for routing tests. Top row 6-7-8 is the straight route; its edge 7-8 is steps.
+    The detour through the middle row is sett. Island node 9 hangs off node 8 by steps only.
+    Returns (G, nodes) with nodes = {"A": 6, "C": 8, "D": 9}.
+    """
+    sett = {"surface": "sett"}
+    G = make_grid_graph({
+        (7, 8): {"highway": "steps"},
+        (3, 4): sett, (4, 5): sett, (4, 7): sett, (5, 8): sett,
+    }, node_tags={})
+    lon, lat, _ = GEOD.fwd(G.nodes[8]["x"], G.nodes[8]["y"], 90, GRID_STEP_M)
+    G.add_node(9, x=lon, y=lat)
+    G.add_edge(8, 9, length=GRID_STEP_M, highway="steps")
+    return G, {"A": 6, "C": 8, "D": 9}
+
+
+def node_lonlat(G: nx.MultiGraph, n: int) -> tuple[float, float]:
+    return (G.nodes[n]["x"], G.nodes[n]["y"])
