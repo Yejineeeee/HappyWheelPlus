@@ -65,11 +65,10 @@ def test_course_shape(built):
     assert set(acc["seg_ids"]) <= ids
 
 
-def test_unreachable_course(built):
+def test_island_stop_course_is_snapped_and_reachable(built):
     c = built[2]["courses.json"][1]
-    assert c["reachable"] is False
-    assert c["routes"]["accessible"] is None and c["comparison"] is None
-    assert c["blocked_at"] is not None
+    assert c["reachable"] is True and c["blocked_at"] is None
+    assert c["routes"]["accessible"] is not None and c["comparison"] is not None
     assert c["routes"]["shortest"]["coords"]
 
 
@@ -126,4 +125,4 @@ def test_fetch_pois_empty_result(tmp_path, monkeypatch):
     city = City("emptyville", "x", "y", (Course("c", "t", (Stop("s", 1.0, 2.0),), None),),
                 center=(1.0, 2.0), radius_m=3000.0)
     assert fetch_pois(city, tmp_path) == []
-    assert json.loads((tmp_path / "emptyville_pois.json").read_text(encoding="utf-8")) == []
+    assert json.loads((tmp_path / "emptyville_r3000_pois.json").read_text(encoding="utf-8")) == []

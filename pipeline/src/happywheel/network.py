@@ -30,7 +30,7 @@ def fetch_network(city: City, cache_dir: Path) -> nx.MultiGraph:
     import osmnx as ox
 
     cache_dir = Path(cache_dir)
-    path = cache_dir / f"{city.id}_walk_v2.graphml"
+    path = cache_dir / f"{city.id}_r{int(city.radius_m)}_walk_v2.graphml"
     if path.exists():
         return ox.load_graphml(path)
     ox.settings.useful_tags_way = USEFUL_WAY_TAGS

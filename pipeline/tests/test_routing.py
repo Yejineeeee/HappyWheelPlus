@@ -7,7 +7,7 @@ from fixtures import GRID_STEP_M, Plane, make_route_graph, node_lonlat
 
 from happywheel.geo import GEOD, to_local_xy
 from happywheel.network import annotate
-from happywheel.routing import ALPHA, nearest_node, route, route_metrics
+from happywheel.routing import ALPHA, nearest_node, route, route_metrics, snap_nodes
 
 
 @pytest.fixture
@@ -54,24 +54,38 @@ def test_accessible_longer_but_no_steps(env):
     assert m_s["length_m"] == pytest.approx(2 * GRID_STEP_M)
 
 
-def test_unreachable_stop_reports_blocked(env):
+def test_island_stop_snaps_to_main_component(env):
     G, A, C, D = env
-    r = route(G, [A, D], "accessible")
-    assert not r.reachable and r.blocked_at == A
+    nodes, snap = snap_nodes(G, [A, D])
+    assert nodes == [6, 8]  # D (steps-only island node 9) -> nearest main node 8
+    assert snap[0] == pytest.approx(0.0, abs=1.0)
+    assert snap[1] == pytest.approx(GRID_STEP_M, abs=1.0)
 
 
-def test_blocked_keeps_partial_route(env):
+def test_shortest_and_accessible_share_snapped_nodes(env):
     G, A, C, D = env
-    r = route(G, [A, C, D], "accessible")
-    assert not r.reachable and r.blocked_at == C
-    assert r.edges and r.coords[-1] == pytest.approx(C)
+    s = route(G, [A, D], "shortest")
+    a = route(G, [A, D], "accessible")
+    assert s.reachable and a.reachable
+    assert s.coords[0] == a.coords[0] and s.coords[-1] == a.coords[-1]
+    assert s.snap_m == a.snap_m
+    assert a.snap_m[1] == pytest.approx(GRID_STEP_M, abs=1.0)
 
 
-def test_shortest_disconnected_graph(env):
+def test_no_passable_edges_falls_back_to_all_nodes():
+    from fixtures import make_grid_graph
+    G = make_grid_graph({k: {"highway": "steps"} for k in
+                         [(0, 1), (1, 2), (3, 4), (4, 5), (6, 7), (7, 8),
+                          (0, 3), (3, 6), (1, 4), (4, 7), (2, 5), (5, 8)]})
+    annotate(G, Plane(0))
+    nodes, _ = snap_nodes(G, [node_lonlat(G, 4)])
+    assert nodes == [4]
+
+
+def test_far_stop_snaps_with_large_distance(env):
     G, A, C, D = env
-    G.add_node(10, x=A[0] + 0.1, y=A[1])
     r = route(G, [A, (A[0] + 0.1, A[1])], "shortest")
-    assert not r.reachable and r.blocked_at == A
+    assert r.reachable and r.snap_m[1] > 5000
 
 
 def test_same_node_stops_no_edges(env):

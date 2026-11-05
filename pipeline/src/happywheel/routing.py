@@ -20,6 +20,7 @@ class RouteResult:
     edges: list[tuple[int, int, int]] = field(default_factory=list)
     coords: list[tuple[float, float]] = field(default_factory=list)
     blocked_at: tuple[float, float] | None = None
+    snap_m: list[float] = field(default_factory=list)  # stop -> snapped node, metres
 
 
 def nearest_node(G: nx.MultiGraph, lon: float, lat: float) -> int:
@@ -29,6 +30,37 @@ def nearest_node(G: nx.MultiGraph, lon: float, lat: float) -> int:
     p = to_local_xy([(lon, lat)], lat)[0]
     d2 = ((xy - p) ** 2).sum(axis=1)
     return ids[int(np.argmin(d2))]
+
+
+def main_component_nodes(G: nx.MultiGraph) -> list[int]:
+    """Nodes of the largest connected component of the non-blocked edges
+    (falls back to every node when no edge is passable)."""
+    H = nx.Graph()
+    for u, v, d in G.edges(data=True):
+        if not d.get("blocked"):
+            H.add_edge(u, v)
+    if H.number_of_nodes() == 0:
+        return list(G.nodes)
+    return list(max(nx.connected_components(H), key=len))
+
+
+def snap_nodes(G: nx.MultiGraph, stops: list[tuple[float, float]]
+               ) -> tuple[list[int], list[float]]:
+    """Snap every stop to the nearest node in the main accessible component.
+    Returns (node ids, snap distances in metres)."""
+    ids = main_component_nodes(G)
+    if not ids or not stops:
+        return [], []
+    pts = np.array([(G.nodes[n]["x"], G.nodes[n]["y"]) for n in ids], dtype=float)
+    nodes, dists = [], []
+    for lon, lat in stops:
+        xy = to_local_xy(pts, lat)
+        p = to_local_xy([(lon, lat)], lat)[0]
+        d2 = ((xy - p) ** 2).sum(axis=1)
+        i = int(np.argmin(d2))
+        nodes.append(ids[i])
+        dists.append(float(np.sqrt(d2[i])))
+    return nodes, dists
 
 
 def _edge_cost(d: dict, mode: str) -> float | None:
@@ -65,7 +97,7 @@ def route(G: nx.MultiGraph, stops: list[tuple[float, float]],
         return None if best is None else best[1]
 
     res = RouteResult(reachable=True)
-    nodes = [nearest_node(G, lon, lat) for lon, lat in stops]
+    nodes, res.snap_m = snap_nodes(G, stops)
     if nodes:
         res.coords.append((G.nodes[nodes[0]]["x"], G.nodes[nodes[0]]["y"]))
     for i, (s, t) in enumerate(zip(nodes, nodes[1:])):

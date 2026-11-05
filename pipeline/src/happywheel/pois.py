@@ -29,7 +29,7 @@ def _kind(row) -> str | None:
 
 def fetch_pois(city: City, cache_dir: Path) -> list[dict]:
     cache_dir = Path(cache_dir)
-    path = cache_dir / f"{city.id}_pois.json"
+    path = cache_dir / f"{city.id}_r{int(city.radius_m)}_pois.json"
     if path.exists():
         return json.loads(path.read_text(encoding="utf-8"))
     import osmnx as ox

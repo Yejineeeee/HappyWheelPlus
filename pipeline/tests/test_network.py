@@ -94,9 +94,27 @@ def test_fetch_uses_v2_cache_name(tmp_path, monkeypatch):
     from fixtures import make_grid_graph
     G = make_grid_graph()
     city = City("testcity", "테스트", "테스트", (), (2.33, 48.86), 3000.0)
-    ox.save_graphml(G, tmp_path / "testcity_walk_v2.graphml")
+    ox.save_graphml(G, tmp_path / "testcity_r3000_walk_v2.graphml")
 
     def boom(*a, **k):
         raise AssertionError("network fetched")
     monkeypatch.setattr(ox, "graph_from_point", boom)
     assert fetch_network(city, tmp_path).number_of_nodes() == 9
+
+
+def test_cache_path_depends_on_radius(tmp_path, monkeypatch):
+    import osmnx as ox
+    from happywheel.config import City
+    from happywheel.network import fetch_network
+    from fixtures import make_grid_graph
+    ox.save_graphml(make_grid_graph(), tmp_path / "t_r3000_walk_v2.graphml")
+    called = []
+
+    def fake(*a, **k):
+        called.append(1)
+        raise RuntimeError("fetch attempted")
+    monkeypatch.setattr(ox, "graph_from_point", fake)
+    assert fetch_network(City("t", "t", "t", (), (2.33, 48.86), 3000.0), tmp_path)
+    with pytest.raises(RuntimeError):
+        fetch_network(City("t", "t", "t", (), (2.33, 48.86), 2700.0), tmp_path)
+    assert called
