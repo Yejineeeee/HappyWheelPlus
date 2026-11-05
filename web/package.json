@@ -1,0 +1,29 @@
+{
+  "name": "happywheel-web",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "e2e": "playwright test"
+  },
+  "dependencies": {
+    "@observablehq/plot": "^0.6.18",
+    "lucide": "^1.69.0",
+    "maplibre-gl": "^5.24.0",
+    "pretendard": "^1.3.9"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.64.1",
+    "@types/geojson": "^7946.0.16",
+    "@types/node": "^26.6.6",
+    "happy-dom": "^21.0.4",
+    "typescript": "^5.9.3",
+    "vite": "^6.4.5",
+    "vite-plugin-pwa": "^2.0.0",
+    "vitest": "^5.1.0"
+  }
+}

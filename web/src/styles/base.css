@@ -1,0 +1,140 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font);
+  font-size: 16px;
+  line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+  -webkit-text-size-adjust: 100%;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+#app {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-header {
+  flex: none;
+  height: var(--header-h);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 8px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+  z-index: 30;
+}
+
+.app-header h1 {
+  flex: 1;
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.icon-btn {
+  width: 44px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  cursor: pointer;
+  font-size: 20px;
+}
+
+.icon-btn:hover {
+  background: var(--line);
+}
+
+.icon-btn[hidden] {
+  display: none;
+}
+
+.app-body {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+
+.map-container {
+  position: absolute;
+  inset: 0;
+  background: var(--line);
+}
+
+.panel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  max-height: var(--sheet-full);
+  min-height: var(--sheet-collapsed);
+  overflow-y: auto;
+  background: var(--surface);
+  border-radius: var(--radius) var(--radius) 0 0;
+  box-shadow: 0 -4px 16px rgb(0 0 0 / 0.15);
+  z-index: 20;
+}
+
+@media (min-width: 1024px) {
+  .app-body {
+    display: grid;
+    grid-template-columns: var(--panel-width) 1fr;
+  }
+
+  .panel {
+    position: relative;
+    grid-column: 1;
+    grid-row: 1;
+    max-height: none;
+    border-radius: 0;
+    box-shadow: none;
+    border-right: 1px solid var(--line);
+  }
+
+  .map-container {
+    position: relative;
+    grid-column: 2;
+    grid-row: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
