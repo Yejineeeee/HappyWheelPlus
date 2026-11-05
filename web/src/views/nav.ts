@@ -5,7 +5,7 @@ import type { Course, SegmentProps } from "../data/types";
 import { prefersReducedMotion, showRouteProgress, showRoutes, showStops, showUser } from "../map/layers";
 import { buildInstructions, type Instruction } from "../nav/instructions";
 import { startNav, type NavHandle, type NavSource, type NavUpdate } from "../nav/controller";
-import { cumulative, locate, splitAt } from "../nav/progress";
+import { cumulative, locateForward, splitAt } from "../nav/progress";
 import { el, errorBlock, loadingBlock } from "../ui/components";
 import { fmtM } from "../ui/format";
 import { fitPadding } from "./mapFit";
@@ -49,6 +49,20 @@ export function segmentSpans(
     }
   }
   return out;
+}
+
+/** 정류장을 순서대로 투영한다. 앞 정류장의 위치부터 찾으므로 왕복 구간에서도 순서가 유지된다. */
+export function projectStops(
+  coords: LngLat[],
+  cum: Float64Array,
+  stops: { name: string; lon: number; lat: number }[],
+): { name: string; atM: number }[] {
+  let from = 0;
+  return stops.map((s) => {
+    const atM = locateForward(coords, cum, [s.lon, s.lat], from);
+    from = atM;
+    return { name: s.name, atM };
+  });
 }
 
 export function navView(cityId: string, courseIndex: number): View {
@@ -112,10 +126,7 @@ export function navView(cityId: string, courseIndex: number): View {
         }
         const cum = cumulative(coords);
         const total = cum[cum.length - 1];
-        const stops = course.stops.map((s) => ({
-          name: s.name,
-          atM: locate(coords, cum, [s.lon, s.lat]).alongM,
-        }));
+        const stops = projectStops(coords, cum, course.stops);
         const stopsAlong = stops.map((s) => s.atM);
         const ins: Instruction[] = buildInstructions(coords, segmentSpans(coords, segIds, features), stops);
 
@@ -153,6 +164,7 @@ export function navView(cityId: string, courseIndex: number): View {
         let lastAlong = 0;
         let lastText = "";
         let lastWarn = "";
+        let warnM = 0;
         let lastRemain = "";
         let lastNext = "";
 
@@ -173,12 +185,20 @@ export function navView(cityId: string, courseIndex: number): View {
           const nextStop = course.stops[Math.min(u.progress.nextStopIndex, course.stops.length - 1)];
           const nextName = u.progress.nextStopIndex < course.stops.length && nextStop ? ` · 다음 정류장 ${nextStop.name}` : "";
           lastNext = setText(nextEl, nextName, lastNext);
-          const warn = u.offRoute ? `경로에서 ${Math.round(u.progress.offRouteM)}m 벗어났어요` : "";
-          if (warn !== lastWarn) {
-            warnEl.textContent = warn;
-            if (warn) warnEl.removeAttribute("hidden");
-            else warnEl.setAttribute("hidden", "");
-            lastWarn = warn;
+          // 읽어 주는 영역은 켜질 때·꺼질 때, 거리가 20m 이상 바뀔 때만 갱신한다.
+          const offM = Math.round(u.progress.offRouteM);
+          const wasOff = lastWarn !== "";
+          if (u.offRoute !== wasOff || (u.offRoute && Math.abs(offM - warnM) >= 20)) {
+            if (u.offRoute) {
+              lastWarn = `경로에서 ${offM}m 벗어났어요`;
+              warnM = offM;
+              warnEl.textContent = lastWarn;
+              warnEl.removeAttribute("hidden");
+            } else {
+              lastWarn = "";
+              warnEl.textContent = "";
+              warnEl.setAttribute("hidden", "");
+            }
           }
         };
 

@@ -52,15 +52,27 @@ export function startNav(opts: NavOptions): NavHandle {
   let stopped = false;
   let needSent = false;
 
-  const handle = (pos: LngLat, heading: number | null): void => {
+  // 경로에서 벗어난 상태가 이어진 횟수. 위치 정확도만큼은 오차로 보고 뺀다.
+  let offCount = 0;
+  const handle = (pos: LngLat, heading: number | null, accuracy = 0): void => {
     if (stopped) return;
-    const progress = locate(coords, cum, pos, hint, opts.stopsAlongM);
+    let progress = locate(coords, cum, pos, hint, opts.stopsAlongM);
+    let off = progress.offRouteM - accuracy > OFF_ROUTE_M;
+    if (off) {
+      offCount++;
+      if (offCount >= 2) {
+        // 연속으로 벗어나면 전체에서 다시 찾는다(경로로 돌아온 경우).
+        progress = locate(coords, cum, pos, undefined, opts.stopsAlongM);
+        off = progress.offRouteM - accuracy > OFF_ROUTE_M;
+      }
+    } else offCount = 0;
+    if (!off) offCount = 0;
     hint = progress.alongM;
     opts.onUpdate({
       pos,
       progress,
       text: nextInstructionText(ins, progress.alongM),
-      offRoute: progress.offRouteM > OFF_ROUTE_M,
+      offRoute: off && offCount >= 2,
       heading: heading ?? headingAt(coords, cum, progress.alongM),
     });
   };
@@ -99,21 +111,30 @@ export function startNav(opts: NavOptions): NavHandle {
   }
 
   let gotFix = false;
+  let watchId = -1;
   let firstFixTimer: ReturnType<typeof setTimeout> | null = setTimeout(() => {
     firstFixTimer = null;
-    if (!gotFix) needSim("unavailable");
+    if (!gotFix) {
+      needSim("unavailable");
+      geo.clearWatch(watchId);
+    }
   }, GPS_FIRST_FIX_TIMEOUT_MS);
   const clearTimer = (): void => {
     if (firstFixTimer !== null) clearTimeout(firstFixTimer);
     firstFixTimer = null;
   };
 
-  const watchId = geo.watchPosition(
+  watchId = geo.watchPosition(
     (g) => {
       gotFix = true;
       clearTimer();
       const h = g.coords.heading;
-      handle([g.coords.longitude, g.coords.latitude], typeof h === "number" && Number.isFinite(h) ? h : null);
+      const acc = g.coords.accuracy;
+      handle(
+        [g.coords.longitude, g.coords.latitude],
+        typeof h === "number" && Number.isFinite(h) ? h : null,
+        typeof acc === "number" && Number.isFinite(acc) ? acc : 0,
+      );
     },
     (err) => {
       // 신호가 잠깐 끊기는 정도(이미 위치를 받은 뒤의 오류)는 무시한다.

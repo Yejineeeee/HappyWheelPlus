@@ -82,4 +82,17 @@ describe("instructions", () => {
     expect(nextInstructionText(ins, 400)).toBe("목적지에 도착했어요");
     expect(nextInstructionText([], 0)).toBe("목적지에 도착했어요");
   });
+
+  it("U-turn says turn back and short jogs are suppressed", () => {
+    // 북쪽 111 m 후 다시 남쪽으로
+    const uturn: [number, number][] = [[8.3, 47.0], [8.3, 47.001], [8.30001, 47.0]];
+    const ins = buildInstructions(uturn, [], []);
+    const t = ins.find((i) => i.kind.startsWith("turn"));
+    expect(t?.text).toBe("되돌아가요");
+    expect(nextInstructionText([{ atM: 130, kind: "turn-right", text: "되돌아가요" }], 100)).toBe("30m 앞에서 되돌아가요");
+    // 약 8 m 옆으로 비켜 갔다 오는 작은 꺾임
+    const jog: [number, number][] = [[8.3, 47.0], [8.3, 47.0005], [8.30015, 47.0005], [8.30015, 47.00057], [8.30030, 47.00057], [8.30030, 47.0015]];
+    const j = buildInstructions(jog, [], []).filter((i) => i.kind.startsWith("turn"));
+    expect(j.length).toBeLessThanOrEqual(2);
+  });
 });

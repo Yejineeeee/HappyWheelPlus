@@ -13,6 +13,8 @@ const TURN_DEG = 30;
 const WINDOW_M = 20;
 const STEP_M = 5;
 const TURN_GAP_M = 25;
+const JOG_M = 15;
+const UTURN_DEG = 150;
 const MERGE_M = 15;
 const STEEP_GRADE = 6;
 const PRIORITY: Instruction["kind"][] = ["turn-left", "turn-right", "slope", "cobble", "kerb", "bridge", "stop", "arrive"];
@@ -54,14 +56,24 @@ function detectTurns(coords: LngLat[]): Instruction[] {
     turns.push(best);
     i = Math.max(j, i + 1);
   }
+  // 꼭짓점이 15m 안에 붙어 있으면 작은 꺾임이므로, 반대 방향이면 둘 다(어긋남), 같은 방향이면 앞의 것만 남긴다.
+  const kept: { d: number; delta: number }[] = [];
+  for (const t of turns) {
+    const prev = kept[kept.length - 1];
+    if (prev && t.d - prev.d < JOG_M) {
+      if (Math.sign(prev.delta) !== Math.sign(t.delta)) kept.pop();
+      continue;
+    }
+    kept.push(t);
+  }
   const out: Instruction[] = [];
   let lastD = -Infinity;
-  for (const t of turns) {
+  for (const t of kept) {
     if (t.d - lastD < TURN_GAP_M) continue;
     lastD = t.d;
-    out.push(
-      t.delta < 0 ? { atM: t.d, kind: "turn-left", text: "왼쪽" } : { atM: t.d, kind: "turn-right", text: "오른쪽" },
-    );
+    const back = Math.abs(t.delta) >= UTURN_DEG;
+    const kind = t.delta < 0 ? "turn-left" : "turn-right";
+    out.push({ atM: t.d, kind, text: back ? "되돌아가요" : t.delta < 0 ? "왼쪽" : "오른쪽" });
   }
   return out;
 }
@@ -133,5 +145,6 @@ export function nextInstructionText(ins: Instruction[], alongM: number): string 
   if (next.kind !== "turn-left" && next.kind !== "turn-right") return next.text;
   const d = next.atM - alongM;
   if (d < 20) return `곧 ${next.text}`;
-  return `${Math.round(d / 10) * 10}m 앞 ${next.text}`;
+  const sep = next.text.startsWith("되돌아가요") ? "m 앞에서 " : "m 앞 ";
+  return `${Math.round(d / 10) * 10}${sep}${next.text}`;
 }

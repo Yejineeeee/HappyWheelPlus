@@ -17,8 +17,8 @@ function fakeGeo() {
   return {
     geo: geo as unknown as Geolocation,
     raw: geo,
-    fix: (lon: number, lat: number, heading: number | null = null) =>
-      ok({ coords: { longitude: lon, latitude: lat, heading } } as GeolocationPosition),
+    fix: (lon: number, lat: number, heading: number | null = null, accuracy = 5) =>
+      ok({ coords: { longitude: lon, latitude: lat, heading, accuracy } } as GeolocationPosition),
     error: (code: number) => fail({ code, message: "", PERMISSION_DENIED: 1, POSITION_UNAVAILABLE: 2, TIMEOUT: 3 } as GeolocationPositionError),
   };
 }
@@ -73,13 +73,36 @@ describe("nav controller", () => {
     expect(u.offRoute).toBe(false);
     expect(u.text).toMatch(/오른쪽/);
     g.fix(8.3 + 0.002, 47.0003);
-    expect(onUpdate.mock.calls[1][0].offRoute).toBe(true);
+    expect(onUpdate.mock.calls[1][0].offRoute).toBe(false); // 한 번만 벗어나면 경고하지 않는다
+    g.fix(8.3 + 0.002, 47.0003);
+    expect(onUpdate.mock.calls[2][0].offRoute).toBe(true);
     vi.advanceTimersByTime(20000);
     expect(need).not.toHaveBeenCalled();
     h.stop();
     expect(g.raw.clearWatch).toHaveBeenCalledWith(7);
     g.fix(8.3, 47.0005);
-    expect(onUpdate).toHaveBeenCalledTimes(2);
+    expect(onUpdate).toHaveBeenCalledTimes(3);
+  });
+
+  it("accuracy is subtracted and off-route needs two consecutive fixes", () => {
+    const g = fakeGeo();
+    const onUpdate = vi.fn();
+    startNav({ coords: LINE, source: "gps", geolocation: g.geo, onUpdate, onNeedSimulation: vi.fn() });
+    const dLon = 60 / (111320 * Math.cos((47 * Math.PI) / 180));
+    g.fix(8.3 + dLon, 47.0003, null, 80);
+    g.fix(8.3 + dLon, 47.0003, null, 80);
+    g.fix(8.3 + dLon, 47.0003, null, 80);
+    expect(onUpdate.mock.calls.every((c) => c[0].offRoute === false)).toBe(true);
+    g.fix(8.3 + dLon, 47.0003, null, 5);
+    g.fix(8.3 + dLon, 47.0003, null, 5);
+    expect(onUpdate.mock.calls.map((c) => c[0].offRoute).slice(3)).toEqual([false, true]);
+  });
+
+  it("timeout clears the watch", () => {
+    const g = fakeGeo();
+    startNav({ coords: LINE, source: "gps", geolocation: g.geo, onUpdate: vi.fn(), onNeedSimulation: vi.fn() });
+    vi.advanceTimersByTime(16000);
+    expect(g.raw.clearWatch).toHaveBeenCalledWith(7);
   });
 
   it("simulation source emits updates and stop ends the timer", () => {

@@ -159,7 +159,15 @@ describe("nav view", () => {
     const v = navView("paris", 0);
     await v.mount(ctx);
     await flush();
-    ok({ coords: { longitude: 8.3 + 0.002, latitude: 47.0003, heading: null } } as GeolocationPosition);
+    const far = (accuracy: number) =>
+      ok({ coords: { longitude: 8.3 + 0.002, latitude: 47.0003, heading: null, accuracy } } as GeolocationPosition);
+    const warn0 = ctx.sheet.el.querySelector<HTMLElement>('[aria-live="assertive"]')!;
+    far(200); // 정확도가 나쁘면 벗어난 것으로 보지 않는다
+    far(200);
+    expect(warn0.hidden).toBe(true);
+    far(5);
+    expect(warn0.hidden).toBe(true); // 한 번만으로는 경고하지 않는다
+    far(5);
     const warn = ctx.sheet.el.querySelector<HTMLElement>('[aria-live="assertive"]')!;
     expect(warn.hidden).toBe(false);
     expect(warn.textContent).toMatch(/^경로에서 \d+m 벗어났어요$/);

@@ -10,7 +10,7 @@ export interface Progress {
 }
 
 export const OFF_ROUTE_M = 40;
-const HINT_BEHIND_M = 150;
+const HINT_BEHIND_M = 25;
 const HINT_AHEAD_M = 400;
 const RAD = Math.PI / 180;
 
@@ -23,6 +23,11 @@ export function cumulative(coords: LngLat[]): Float64Array {
 interface Hit {
   along: number;
   off: number;
+}
+
+/** 같은 거리의 후보 중 hint 앞쪽(가까운 순)을 먼저, 뒤쪽은 그다음으로 본다. */
+function rank(along: number, hint: number): number {
+  return along >= hint ? along - hint : 1e6 + (hint - along);
 }
 
 function scan(coords: LngLat[], cum: Float64Array, p: LngLat, from: number, to: number, hint?: number): Hit {
@@ -44,13 +49,17 @@ function scan(coords: LngLat[], cum: Float64Array, p: LngLat, from: number, to: 
     const off = Math.hypot(ax + t * dx - px, ay + t * dy - py);
     const along = cum[i] + t * (cum[i + 1] - cum[i]);
     // 왕복 경로처럼 거리가 같은 후보가 여럿이면 직전 위치에 가까운 쪽을 쓴다.
-    const tie = hint !== undefined && Math.abs(off - best.off) <= 0.5 && Math.abs(along - hint) < Math.abs(best.along - hint);
+    const tie = hint !== undefined && Math.abs(off - best.off) <= 0.5 && rank(along, hint) < rank(best.along, hint);
     if (off < best.off - (hint !== undefined ? 0.5 : 0) || tie) best = { along, off };
   }
   return best;
 }
 
-/** 경로 위 가장 가까운 지점을 찾는다. hintAlongM이 있으면 그 근처를 먼저 보고, 많이 벗어났을 때만 전체를 본다. */
+/**
+ * 경로 위 가장 가까운 지점을 찾는다.
+ * hintAlongM이 있으면 (hint-25 m ~ hint+400 m)만 본다. 왕복 경로에서 되돌아오는 길이 거꾸로 잡히지 않게 하려는 것이다.
+ * 같은 거리의 후보가 여럿이면 hint 앞쪽에서 가장 가까운 것을 쓴다. 힌트 없이 부르면 전체를 본다(처음 위치, 경로 복귀).
+ */
 export function locate(
   routeCoords: LngLat[],
   cum: Float64Array,
@@ -71,10 +80,7 @@ export function locate(
       while (hi < n && cum[hi] <= hintAlongM + HINT_AHEAD_M) hi++;
       hit = scan(routeCoords, cum, p, lo, Math.max(hi, lo + 1 > n ? n : lo + 1), hintAlongM);
     }
-    if (hit.off > OFF_ROUTE_M) {
-      const full = scan(routeCoords, cum, p, 0, n);
-      if (full.off < hit.off) hit = full;
-    }
+    else hit = scan(routeCoords, cum, p, 0, n);
   }
   const along = Math.min(total, Math.max(0, hit.along));
   let next = 0;
@@ -131,4 +137,17 @@ export function headingAt(coords: LngLat[], cum: Float64Array, d: number): numbe
   const b = pointAt(coords, cum, Math.min(total, Math.max(d, 0) + 8 > total ? total : Math.max(d, 0) + 8));
   if (a[0] === b[0] && a[1] === b[1]) return null;
   return bearing(a, b);
+}
+
+/**
+ * 정류장처럼 순서가 있는 점을 경로 위에 투영한다. fromAlongM 이후(−25 m 여유)에서 가장 가까운 지점을 찾는다.
+ * 거리가 같으면 앞쪽을 택한다.
+ */
+export function locateForward(coords: LngLat[], cum: Float64Array, p: LngLat, fromAlongM: number): number {
+  if (coords.length < 2) return 0;
+  const n = coords.length - 1;
+  let lo = 0;
+  while (lo < n - 1 && cum[lo + 1] < fromAlongM - HINT_BEHIND_M) lo++;
+  const hit = scan(coords, cum, p, lo, n, undefined);
+  return Math.max(fromAlongM, hit.along);
 }
